@@ -24,7 +24,8 @@ export interface Trade {
   outcome: TradeOutcome;
   riskReward: number;
   notes: string;
-  images: string[];
+  image_url?: string; // Uploaded chart screenshot URL from Supabase Storage
+  images?: string[];  // Retain string array compatibility
   createdAt: string;
 }
 

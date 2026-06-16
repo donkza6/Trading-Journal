@@ -262,6 +262,7 @@ export function useTrades(profileId: string | null) {
           riskReward: Number(t.risk_reward),
           notes: t.notes || '',
           images: t.images || [],
+          image_url: t.image_url || '',
           createdAt: t.created_at,
         }))
       );
@@ -325,6 +326,7 @@ export function useTrades(profileId: string | null) {
             risk_reward: tradeInput.riskReward,
             notes: tradeInput.notes,
             images: tradeInput.images,
+            image_url: tradeInput.image_url,
             created_at: tradeInput.createdAt,
           },
         ]);
@@ -367,6 +369,7 @@ export function useTrades(profileId: string | null) {
           risk_reward: tradeInput.riskReward,
           notes: tradeInput.notes,
           images: tradeInput.images,
+          image_url: tradeInput.image_url,
           created_at: tradeInput.createdAt,
         })
         .eq('id', id);

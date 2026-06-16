@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { useProfiles, useTrades } from '@/context/ProfileContext';
 import type { TradeDirection, TradeOutcome, Trade } from '@/types';
+import { supabase } from '@/lib/supabase';
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -19,7 +20,10 @@ import {
   FileText,
   Image as ImageIcon,
   Trophy,
-  Activity
+  Activity,
+  ImagePlus,
+  Upload,
+  Loader2
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════
@@ -187,8 +191,6 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                         ))}
                       </div>
 
-
-
                       {/* Notes */}
                       {trade.notes && (
                         <p className="text-[0.82rem] text-journal-text-secondary leading-relaxed italic">
@@ -196,9 +198,26 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                         </p>
                       )}
 
-                      {/* Images */}
-                      {trade.images.length > 0 && (
-                        <div className="flex gap-2 flex-wrap">
+                      {/* Screenshot Preview */}
+                      {trade.image_url && (
+                        <div className="mt-2 mb-1">
+                          <button
+                            type="button"
+                            className="rounded-xl overflow-hidden border border-neutral-200 cursor-pointer hover:scale-[1.01] hover:shadow-sm transition-all p-0 bg-transparent block max-w-full aspect-[16/10] w-[180px]"
+                            onClick={() => setExpandedImage(trade.image_url!)}
+                          >
+                            <img
+                              src={trade.image_url}
+                              alt="Chart Screenshot"
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Legacy Base64 Images */}
+                      {trade.images && trade.images.length > 0 && (
+                        <div className="flex gap-2 flex-wrap mt-2">
                           {trade.images.map((img, idx) => (
                             <button
                               key={idx}
@@ -309,8 +328,6 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
    TradeForm – Inline form inside the modal
    ═══════════════════════════════════════════════ */
 
-
-
 interface TradeFormProps {
   date: string;
   onClose: () => void;
@@ -335,24 +352,47 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
   const [riskReward, setRiskReward] = useState(editingTrade?.riskReward ? editingTrade.riskReward.toString() : '');
   const [outcome, setOutcome] = useState<TradeOutcome>(editingTrade?.outcome ?? 'Win');
   const [notes, setNotes] = useState(editingTrade?.notes ?? '');
-  const [images, setImages] = useState<string[]>(editingTrade?.images ?? []);
+  const [images] = useState<string[]>(editingTrade?.images ?? []);
   const [saving, setSaving] = useState(false);
 
-  const handleImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    Array.from(files).forEach((f) => {
-      const r = new FileReader();
-      r.onload = (ev) => {
-        if (ev.target?.result)
-          setImages((p) => [...p, ev.target!.result as string]);
-      };
-      r.readAsDataURL(f);
-    });
+  // Storage upload states
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>(editingTrade?.image_url ?? '');
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
   };
 
-  const removeImage = (idx: number) =>
-    setImages((p) => p.filter((_, i) => i !== idx));
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setPreviewUrl('');
+  };
 
   // Helper to guess pip size
   const getPipSize = useCallback((entry: number) => {
@@ -568,48 +608,85 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
     }
   }, [entryPrice, tpPrice, slPrice, direction]);
 
-  const handleSubmit = (ev: FormEvent) => {
+  const handleSubmit = async (ev: FormEvent) => {
     ev.preventDefault();
     if (!pair || !entryPrice || !positionSize) return;
     setSaving(true);
 
-    const entryNum = parseFloat(entryPrice);
-    const tpPriceNum = parseFloat(tpPrice) || entryNum;
-    const slPriceNum = parseFloat(slPrice) || entryNum;
+    try {
+      let finalImageUrl = previewUrl;
 
-    let computedExitPrice = entryNum;
-    if (outcome === 'Win') {
-      computedExitPrice = tpPriceNum;
-    } else if (outcome === 'Loss') {
-      computedExitPrice = slPriceNum;
-    } else {
-      computedExitPrice = entryNum;
-    }
+      // Upload file to Supabase Storage if new image selected
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop() || 'png';
+        const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        const fileName = `${uniqueId}.${fileExt}`;
 
-    const tradeData = {
-      pair: pair.toUpperCase(),
-      direction,
-      entryPrice: entryNum,
-      exitPrice: computedExitPrice,
-      positionSize: parseFloat(positionSize),
-      profitLevel: tpPriceNum,
-      stopLevel: slPriceNum,
-      riskReward: parseFloat(riskReward) || 0,
-      notes,
-      images,
-      createdAt: date + 'T12:00:00',
-    };
+        const { data: uploadData, error: uploadError } = await supabase
+          .storage
+          .from('trade-images')
+          .upload(fileName, selectedFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
-    if (editingTrade) {
-      updateTrade(editingTrade.id, tradeData);
-    } else {
-      addTrade(tradeData);
-    }
+        if (uploadError) {
+          console.error('[Supabase Storage] Upload error:', uploadError.message);
+          alert('Failed to upload chart image to storage: ' + uploadError.message);
+          setSaving(false);
+          return;
+        }
 
-    setTimeout(() => {
-      setSaving(false);
+        // Get public URL
+        const { data: { publicUrl } } = supabase
+          .storage
+          .from('trade-images')
+          .getPublicUrl(fileName);
+
+        finalImageUrl = publicUrl;
+      }
+
+      const entryNum = parseFloat(entryPrice);
+      const tpPriceNum = parseFloat(tpPrice) || entryNum;
+      const slPriceNum = parseFloat(slPrice) || entryNum;
+
+      let computedExitPrice = entryNum;
+      if (outcome === 'Win') {
+        computedExitPrice = tpPriceNum;
+      } else if (outcome === 'Loss') {
+        computedExitPrice = slPriceNum;
+      } else {
+        computedExitPrice = entryNum;
+      }
+
+      const tradeData = {
+        pair: pair.toUpperCase(),
+        direction,
+        entryPrice: entryNum,
+        exitPrice: computedExitPrice,
+        positionSize: parseFloat(positionSize),
+        profitLevel: tpPriceNum,
+        stopLevel: slPriceNum,
+        riskReward: parseFloat(riskReward) || 0,
+        notes,
+        images,
+        image_url: finalImageUrl,
+        createdAt: date + 'T12:00:00',
+      };
+
+      if (editingTrade) {
+        await updateTrade(editingTrade.id, tradeData);
+      } else {
+        await addTrade(tradeData);
+      }
+
       onClose();
-    }, 250);
+    } catch (err) {
+      console.error('[Trade Form] Submission failed:', err);
+      alert('Failed to save trade details.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
@@ -838,49 +915,60 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
         />
       </Field>
 
-      {/* Image upload */}
+      {/* Chart Screenshot upload dropzone */}
       <div className="flex flex-col gap-2">
         <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
-          Chart Screenshots
+          Chart Screenshot
         </span>
-        <div className="flex flex-wrap gap-2">
-          {images.map((img, i) => (
-            <div
-              key={i}
-              className="relative w-20 h-20 rounded-[var(--radius-button)] overflow-hidden border border-border-light"
+
+        {previewUrl ? (
+          <div className="relative rounded-2xl overflow-hidden border border-neutral-200 shadow-sm max-w-full aspect-[16/10] bg-neutral-50 flex items-center justify-center">
+            <img
+              src={previewUrl}
+              alt="Chart preview"
+              className="w-full h-full object-contain"
+            />
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full border-none bg-black/60 text-white cursor-pointer flex items-center justify-center hover:bg-rose-600 transition-colors shadow-sm"
+              title="Remove screenshot"
             >
-              <img
-                src={img}
-                alt={`Chart ${i + 1}`}
-                className="w-full h-full object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => removeImage(i)}
-                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full border-none bg-black/60 text-white cursor-pointer flex items-center justify-center hover:bg-rose-600 transition-colors"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
+            onDrop={handleDrop}
             onClick={() => fileRef.current?.click()}
-            className="w-20 h-20 rounded-xl border-2 border-dashed border-neutral-300 bg-transparent flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-journal-text hover:bg-journal-bg transition-all"
+            className={`w-full min-h-[140px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2.5 cursor-pointer p-6 text-center transition-all duration-200 ${
+              dragActive
+                ? 'border-journal-text bg-journal-bg/50'
+                : 'border-neutral-300 bg-transparent hover:border-neutral-400 hover:bg-neutral-50/50'
+            }`}
           >
-            <ImageIcon className="w-5 h-5 text-neutral-400" />
-            <span className="text-[0.6rem] font-semibold text-journal-text-muted">
-              Add Image
-            </span>
-          </button>
-        </div>
+            <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center">
+              <ImagePlus className="w-5 h-5 text-neutral-500" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-neutral-800">
+                Click to upload or drag & drop
+              </p>
+              <p className="text-[0.68rem] text-neutral-400 mt-0.5">
+                PNG, JPG, or WEBP chart screenshot (Max 5MB)
+              </p>
+            </div>
+          </div>
+        )}
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
-          multiple
           hidden
-          onChange={handleImages}
+          onChange={handleFileChange}
         />
       </div>
 
@@ -896,9 +984,16 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
         <button
           type="submit"
           disabled={!pair || !entryPrice || !positionSize || saving}
-          className="px-5 py-2.5 rounded-[var(--radius-button)] bg-journal-text text-journal-text-inverse font-semibold text-[0.875rem] cursor-pointer hover:bg-[#1a1616] hover:shadow-card-hover transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-5 py-2.5 rounded-xl bg-journal-text text-journal-text-inverse font-semibold text-[0.875rem] cursor-pointer hover:bg-[#1a1616] hover:shadow-card-hover transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
-          {saving ? 'Saving...' : 'Save Trade'}
+          {saving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              Saving Trade...
+            </>
+          ) : (
+            'Save Trade'
+          )}
         </button>
       </div>
     </form>
