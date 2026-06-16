@@ -161,7 +161,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
     // Subscribe to realtime profiles updates
     const channel = supabase
-      .channel('realtime_profiles')
+      .channel('realtime_profiles_' + Math.random().toString(36).substring(2, 9))
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'profiles' },
@@ -277,7 +277,7 @@ export function useTrades(profileId: string | null) {
 
     // Subscribe to realtime trades updates filtered by profile ID
     const channel = supabase
-      .channel(`realtime_trades_${profileId}`)
+      .channel(`realtime_trades_${profileId}_` + Math.random().toString(36).substring(2, 9))
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'trades', filter: `profile_id=eq.${profileId}` },
