@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { ProfileProvider } from '@/context/ProfileContext';
 import ThemeProviderClient from '@/components/ThemeProviderClient';
+import ToasterProvider from '@/components/ToasterProvider';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Trading Journal — Track, Analyze, Improve',
@@ -31,7 +33,16 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <ThemeProviderClient>
-          <ProfileProvider>{children}</ProfileProvider>
+          <ProfileProvider>
+            <div className="w-full border-b border-neutral-200/50 bg-journal-card/40">
+              <div className="max-w-[1100px] mx-auto px-6 py-3 flex items-center justify-start gap-4">
+                <Link href="/journal" className="font-bold">Journal</Link>
+                <Link href="/plans" className="font-bold">Trade Plans</Link>
+              </div>
+            </div>
+            {children}
+            <ToasterProvider />
+          </ProfileProvider>
         </ThemeProviderClient>
       </body>
     </html>

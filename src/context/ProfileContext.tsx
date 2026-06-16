@@ -180,7 +180,7 @@ export function useTrades(profileId: string | null) {
           notes: t.notes || '',
           images: t.images || [],
           image_url: t.image_url || '',
-          status: (t.status as 'OPEN' | 'CLOSED') || 'CLOSED',
+          status: (t.status as 'OPEN' | 'CLOSED' | 'PLAN') || 'CLOSED',
           createdAt: t.created_at,
         }))
       );
@@ -212,7 +212,7 @@ export function useTrades(profileId: string | null) {
   }, [profileId, fetchTrades]);
 
   const addTrade = useCallback(
-    async (tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'> & { status?: 'OPEN' | 'CLOSED' }) => {
+    async (tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'> & { status?: 'OPEN' | 'CLOSED' | 'PLAN' }) => {
       if (!profileId) return;
       const { direction, entryPrice, exitPrice, positionSize, status } = tradeInput;
 
@@ -239,12 +239,12 @@ export function useTrades(profileId: string | null) {
             pair: tradeInput.pair,
             direction,
             entry_price: entryPrice,
-            exit_price: status === 'OPEN' ? null : exitPrice,
+            exit_price: status === 'OPEN' || status === 'PLAN' ? null : exitPrice,
             position_size: positionSize,
             profit_level: tradeInput.profitLevel ?? null,
             stop_level: tradeInput.stopLevel ?? null,
             pnl: pnl,
-            outcome: status === 'OPEN' ? null : outcome,
+            outcome: status === 'OPEN' || status === 'PLAN' ? null : outcome,
             risk_reward: tradeInput.riskReward,
             notes: tradeInput.notes,
             images: tradeInput.images ?? [],
@@ -263,7 +263,7 @@ export function useTrades(profileId: string | null) {
   );
 
   const updateTrade = useCallback(
-    async (id: string, tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'> & { status?: 'OPEN' | 'CLOSED' }) => {
+    async (id: string, tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'> & { status?: 'OPEN' | 'CLOSED' | 'PLAN' }) => {
       const { direction, entryPrice, exitPrice, positionSize, status } = tradeInput;
 
       let pnl: number | null = null;
@@ -286,12 +286,12 @@ export function useTrades(profileId: string | null) {
           pair: tradeInput.pair,
           direction,
           entry_price: entryPrice,
-          exit_price: status === 'OPEN' ? null : exitPrice,
+          exit_price: status === 'OPEN' || status === 'PLAN' ? null : exitPrice,
           position_size: positionSize,
           profit_level: tradeInput.profitLevel ?? null,
           stop_level: tradeInput.stopLevel ?? null,
           pnl: pnl,
-          outcome: outcome,
+          outcome: status === 'OPEN' || status === 'PLAN' ? null : outcome,
           risk_reward: tradeInput.riskReward,
           notes: tradeInput.notes,
           images: tradeInput.images ?? [],

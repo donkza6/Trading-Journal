@@ -28,7 +28,7 @@ export interface Trade {
   images?: string[];  // Retain string array compatibility
   setup_grade?: string | null; // 'A' | 'B' | 'C' optionally stored from pre-trade checklist
   news_event?: string | null; // Optional macro/news event tag
-  status: 'OPEN' | 'CLOSED';
+  status: 'OPEN' | 'CLOSED' | 'PLAN';
   createdAt: string;
 }
 

@@ -33,6 +33,7 @@ import {
   Calculator,
   Megaphone,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 /* ═══════════════════════════════════════════
    TradeModal – Day detail view + trade form
@@ -63,10 +64,15 @@ async function uploadTradeImage(file: File): Promise<string> {
 
   if (uploadError) throw new Error(uploadError.message);
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from('trade-images').getPublicUrl(fileName);
-  return publicUrl;
+  // getPublicUrl is synchronous in supabase-js and returns data.publicUrl
+  try {
+    const { data } = supabase.storage.from('trade-images').getPublicUrl(fileName);
+    if (data && (data as any).publicUrl) return (data as any).publicUrl as string;
+  } catch (e) {
+    // fall through to throw below
+  }
+
+  throw new Error('Unable to obtain public URL for uploaded image');
 }
 
 // Best-effort cleanup for partially uploaded files: remove by filename extracted from public URL
@@ -96,9 +102,10 @@ interface TradeModalProps {
   date: string;
   onClose: () => void;
   initialTrade?: Trade | null;
+  initialMode?: 'PLAN' | 'OPEN' | 'CLOSED';
 }
 
-export default function TradeModal({ date, onClose, initialTrade = null }: TradeModalProps) {
+export default function TradeModal({ date, onClose, initialTrade = null, initialMode }: TradeModalProps) {
   const { activeProfileId } = useProfiles();
   const { getDayLog, deleteTrade } = useTrades(activeProfileId);
   const [showForm, setShowForm] = useState(false);
@@ -195,6 +202,7 @@ export default function TradeModal({ date, onClose, initialTrade = null }: Trade
                 setEditingTrade(null);
               }}
               editingTrade={editingTrade}
+              initialMode={initialMode}
             />
           ) : (
             <>
@@ -528,7 +536,7 @@ function TradeImageEditor({ trade, onClose }: TradeImageEditorProps) {
       onClose();
     } catch (err) {
       console.error('[TradeImageEditor] Save failed:', err);
-      alert('Failed to save images. Please try again. ' + ((err as any)?.message || ''));
+      toast.error('Failed to save images. Please try again. ' + ((err as any)?.message || ''));
     } finally {
       setSaving(false);
     }
@@ -655,9 +663,10 @@ interface TradeFormProps {
   date: string;
   onClose: () => void;
   editingTrade?: Trade | null;
+  initialMode?: 'PLAN' | 'OPEN' | 'CLOSED';
 }
 
-function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
+function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps) {
   const { activeProfileId } = useProfiles();
   const { addTrade, updateTrade } = useTrades(activeProfileId);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -702,6 +711,7 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
   const [closeExitPrice, setCloseExitPrice] = useState('');
   const [closePnl, setClosePnl] = useState('');
   const [breakevenPrice, setBreakevenPrice] = useState<string>(editingTrade?.exitPrice ? String(editingTrade.exitPrice) : '');
+  const [mode, setMode] = useState<'PLAN' | 'OPEN' | 'CLOSED'>(editingTrade?.status ?? initialMode ?? 'PLAN');
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -756,7 +766,12 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
   // reset / mode helpers
   useEffect(() => {
     if (editingTrade) {
-      setIsActiveEntry(editingTrade.status === 'OPEN');
+      // restore the editing trade mode (PLAN | OPEN | CLOSED)
+      // ensure the form's active flag follows the editing status
+      // default to PLAN for unknown values
+      const st = (editingTrade.status as 'PLAN' | 'OPEN' | 'CLOSED') || 'PLAN';
+      setMode(st);
+      setIsActiveEntry(st === 'OPEN');
       if (editingTrade.exitPrice !== undefined && editingTrade.exitPrice !== null) {
         setBreakevenPrice(String(editingTrade.exitPrice));
       }
@@ -1003,7 +1018,7 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
     ev.preventDefault();
     if (!pair || !entryPrice || !positionSize) return;
     if (!setupGrade) {
-      alert('Please select a Setup Grade (A, B, or C) before saving.');
+      toast.error('Please select a Setup Grade (A, B, or C) before saving.');
       return;
     }
     setSaving(true);
@@ -1025,7 +1040,7 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
           } catch (e) {
             console.warn('Cleanup failed after upload error', e);
           }
-          alert('Failed to upload chart image to storage: ' + message);
+          toast.error('Failed to upload chart image to storage: ' + message);
           setSaving(false);
           return;
         }
@@ -1043,8 +1058,8 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
       const tpPriceNum = parseFloat(tpPrice) || undefined;
       const slPriceNum = parseFloat(slPrice) || undefined;
 
-      // Determine status
-      let status: 'OPEN' | 'CLOSED' = isActiveEntry ? 'OPEN' : 'CLOSED';
+      // Determine status from mode selector (PLAN | OPEN | CLOSED)
+      let status: 'PLAN' | 'OPEN' | 'CLOSED' = mode;
 
       // If editing an existing OPEN trade and the user provided close values, treat as close
       if (editingTrade && editingTrade.status === 'OPEN' && closeExitPrice) {
@@ -1110,7 +1125,7 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
       console.error('Supabase Insert Error:', error);
       // also keep the original logging for context
       console.error('[Trade Form] Submission failed:', error);
-      alert('Error: ' + (error?.message || String(error)));
+      toast.error('Error: ' + (error?.message || String(error)));
     } finally {
       setSaving(false);
     }
@@ -1139,20 +1154,26 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
           </span>
         </div>
 
-        {/* Create mode toggle: Closed vs Active */}
+        {/* Mode selector: Plan / Open / Closed */}
         {!editingTrade && (
           <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setActiveMode(false)}
-              className={`px-3 py-1.5 rounded-md font-semibold ${!isActiveEntry ? 'bg-journal-text text-journal-text-inverse' : 'bg-transparent text-journal-text-muted'}`}>
-              Log Closed Trade
+              onClick={() => { setMode('PLAN'); setIsActiveEntry(false); }}
+              className={`px-3 py-1.5 rounded-md font-semibold ${mode === 'PLAN' ? 'bg-journal-text text-journal-text-inverse' : 'bg-transparent text-journal-text-muted'}`}>
+              Plan a Trade
             </button>
             <button
               type="button"
-              onClick={() => setActiveMode(true)}
-              className={`px-3 py-1.5 rounded-md font-semibold ${isActiveEntry ? 'bg-emerald-50 text-emerald-700' : 'bg-transparent text-journal-text-muted'}`}>
+              onClick={() => { setMode('OPEN'); setIsActiveEntry(true); }}
+              className={`px-3 py-1.5 rounded-md font-semibold ${mode === 'OPEN' ? 'bg-emerald-50 text-emerald-700' : 'bg-transparent text-journal-text-muted'}`}>
               Enter Active Trade
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('CLOSED'); setIsActiveEntry(false); }}
+              className={`px-3 py-1.5 rounded-md font-semibold ${mode === 'CLOSED' ? 'bg-rose-50 text-rose-700' : 'bg-transparent text-journal-text-muted'}`}>
+              Log Closed Trade
             </button>
           </div>
         )}
@@ -1587,7 +1608,20 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
         </button>
         <button
           type="submit"
-          disabled={!pair || !entryPrice || !positionSize || !setupGrade || saving}
+          disabled={(() => {
+            if (saving) return true;
+            if (!pair || !entryPrice) return true;
+            if (mode === 'PLAN') return false;
+            if (mode === 'OPEN' && (!positionSize || Number(positionSize) <= 0)) return true;
+            if (mode === 'CLOSED') {
+              if (!positionSize || Number(positionSize) <= 0) return true;
+              // allow closing an existing open trade with explicit close values
+              if (editingTrade && editingTrade.status === 'OPEN' && closeExitPrice) return false;
+              // otherwise require at least one of exit markers
+              if (!closeExitPrice && !tpPrice && !slPrice && !breakevenPrice) return true;
+            }
+            return false;
+          })()}
           className="px-5 py-2.5 rounded-xl bg-journal-text text-journal-text-inverse font-semibold text-[0.875rem] cursor-pointer hover:bg-[#1a1616] hover:shadow-card-hover transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
           {saving ? (
