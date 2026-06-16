@@ -41,8 +41,6 @@ export interface Trade {
   pnl: number;
   outcome: TradeOutcome;
   riskReward: number;
-  strategyTags: StrategyTag[];
-  emotionTags: EmotionTag[];
   notes: string;
   images: string[];
   createdAt: string;

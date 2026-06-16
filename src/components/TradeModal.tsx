@@ -8,7 +8,7 @@ import React, {
   type FormEvent,
 } from 'react';
 import { useTrades } from '@/context/TradeContext';
-import type { StrategyTag, EmotionTag, TradeDirection } from '@/types';
+import type { TradeDirection, TradeOutcome } from '@/types';
 
 /* ═══════════════════════════════════════════
    TradeModal – Day detail view + trade form
@@ -161,28 +161,7 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                         ))}
                       </div>
 
-                      {/* Tags */}
-                      {(trade.strategyTags.length > 0 ||
-                        trade.emotionTags.length > 0) && (
-                        <div className="flex flex-wrap gap-1">
-                          {trade.strategyTags.map((t) => (
-                            <span
-                              key={t}
-                              className="text-[0.68rem] font-semibold px-2 py-0.5 rounded-full bg-accent-blue-bg text-accent-blue"
-                            >
-                              {t}
-                            </span>
-                          ))}
-                          {trade.emotionTags.map((t) => (
-                            <span
-                              key={t}
-                              className="text-[0.68rem] font-semibold px-2 py-0.5 rounded-full bg-[rgba(124,58,237,0.08)] text-accent-purple"
-                            >
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+
 
                       {/* Notes */}
                       {trade.notes && (
@@ -294,22 +273,7 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
    TradeForm – Inline form inside the modal
    ═══════════════════════════════════════════════ */
 
-const STRATEGY_TAGS: StrategyTag[] = [
-  'Breakout', 'Breakdown', 'Trend Following', 'Reversal', 'Scalping',
-  'Swing', 'RSI', 'MACD', 'Support/Resistance', 'Supply/Demand',
-  'News Play', 'Gap Fill',
-];
 
-const EMOTION_TAGS: EmotionTag[] = [
-  'Confident', 'Neutral', 'Anxious', 'FOMO', 'Greedy',
-  'Fearful', 'Revenge', 'Patient', 'Disciplined', 'Impulsive',
-];
-
-const EMOTION_ICONS: Record<EmotionTag, string> = {
-  Confident: '💪', Neutral: '😐', Anxious: '😰', FOMO: '🏃',
-  Greedy: '🤑', Fearful: '😨', Revenge: '😤', Patient: '🧘',
-  Disciplined: '🎯', Impulsive: '⚡',
-};
 
 interface TradeFormProps {
   date: string;
@@ -323,21 +287,18 @@ function TradeForm({ date, onClose }: TradeFormProps) {
   const [pair, setPair] = useState('');
   const [direction, setDirection] = useState<TradeDirection>('Long');
   const [entryPrice, setEntryPrice] = useState('');
-  const [exitPrice, setExitPrice] = useState('');
-  const [profitLevel, setProfitLevel] = useState('');
-  const [stopLevel, setStopLevel] = useState('');
+  const [tpPrice, setTpPrice] = useState('');
+  const [tpPips, setTpPips] = useState('');
+  const [tpPoints, setTpPoints] = useState('');
+  const [slPrice, setSlPrice] = useState('');
+  const [slPips, setSlPips] = useState('');
+  const [slPoints, setSlPoints] = useState('');
   const [positionSize, setPositionSize] = useState('');
   const [riskReward, setRiskReward] = useState('');
-  const [strategyTags, setStrategyTags] = useState<StrategyTag[]>([]);
-  const [emotionTags, setEmotionTags] = useState<EmotionTag[]>([]);
+  const [outcome, setOutcome] = useState<TradeOutcome>('Win');
   const [notes, setNotes] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-
-  const toggleStrat = (t: StrategyTag) =>
-    setStrategyTags((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
-  const toggleEmo = (t: EmotionTag) =>
-    setEmotionTags((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
 
   const handleImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -355,20 +316,177 @@ function TradeForm({ date, onClose }: TradeFormProps) {
   const removeImage = (idx: number) =>
     setImages((p) => p.filter((_, i) => i !== idx));
 
-  // Live P&L preview
+  // Helper to guess pip size
+  const getPipSize = useCallback((entry: number) => {
+    if (entry <= 0 || isNaN(entry)) return 0.0001;
+    if (entry < 5) return 0.0001; // Forex major e.g. EUR/USD
+    if (entry < 500) return 0.01;   // JPY or stocks
+    return 1.0;                    // Crypto, Gold, Indices
+  }, []);
+
+  const handleEntryChange = (val: string) => {
+    setEntryPrice(val);
+    const entryNum = parseFloat(val);
+    if (isNaN(entryNum) || entryNum <= 0) return;
+
+    const pipSize = getPipSize(entryNum);
+
+    // Sync TP if TP Price exists
+    const tpPriceNum = parseFloat(tpPrice);
+    if (!isNaN(tpPriceNum)) {
+      const diff = direction === 'Long' ? tpPriceNum - entryNum : entryNum - tpPriceNum;
+      const pips = diff / pipSize;
+      setTpPips(Number(pips.toFixed(2)).toString());
+      setTpPoints(Number((pips * 10).toFixed(1)).toString());
+    }
+
+    // Sync SL if SL Price exists
+    const slPriceNum = parseFloat(slPrice);
+    if (!isNaN(slPriceNum)) {
+      const diff = direction === 'Long' ? entryNum - slPriceNum : slPriceNum - entryNum;
+      const pips = diff / pipSize;
+      setSlPips(Number(pips.toFixed(2)).toString());
+      setSlPoints(Number((pips * 10).toFixed(1)).toString());
+    }
+  };
+
+  const handleDirectionChange = (dir: TradeDirection) => {
+    setDirection(dir);
+    const entryNum = parseFloat(entryPrice);
+    if (isNaN(entryNum) || entryNum <= 0) return;
+
+    const pipSize = getPipSize(entryNum);
+
+    const tpPipsNum = parseFloat(tpPips);
+    if (!isNaN(tpPipsNum)) {
+      const price = dir === 'Long' ? entryNum + (tpPipsNum * pipSize) : entryNum - (tpPipsNum * pipSize);
+      setTpPrice(Number(price.toFixed(5)).toString());
+    }
+
+    const slPipsNum = parseFloat(slPips);
+    if (!isNaN(slPipsNum)) {
+      const price = dir === 'Long' ? entryNum - (slPipsNum * pipSize) : entryNum + (slPipsNum * pipSize);
+      setSlPrice(Number(price.toFixed(5)).toString());
+    }
+  };
+
+  const handleTpPriceChange = (val: string) => {
+    setTpPrice(val);
+    const priceNum = parseFloat(val);
+    const entryNum = parseFloat(entryPrice);
+    if (isNaN(priceNum) || isNaN(entryNum) || entryNum <= 0) {
+      setTpPips('');
+      setTpPoints('');
+      return;
+    }
+    const pipSize = getPipSize(entryNum);
+    const diff = direction === 'Long' ? priceNum - entryNum : entryNum - priceNum;
+    const pips = diff / pipSize;
+    setTpPips(Number(pips.toFixed(2)).toString());
+    setTpPoints(Number((pips * 10).toFixed(1)).toString());
+  };
+
+  const handleTpPipsChange = (val: string) => {
+    setTpPips(val);
+    const pipsNum = parseFloat(val);
+    const entryNum = parseFloat(entryPrice);
+    if (isNaN(pipsNum) || isNaN(entryNum) || entryNum <= 0) {
+      setTpPrice('');
+      setTpPoints('');
+      return;
+    }
+    const pipSize = getPipSize(entryNum);
+    const price = direction === 'Long' ? entryNum + (pipsNum * pipSize) : entryNum - (pipsNum * pipSize);
+    setTpPrice(Number(price.toFixed(5)).toString());
+    setTpPoints(Number((pipsNum * 10).toFixed(1)).toString());
+  };
+
+  const handleTpPointsChange = (val: string) => {
+    setTpPoints(val);
+    const pointsNum = parseFloat(val);
+    const entryNum = parseFloat(entryPrice);
+    if (isNaN(pointsNum) || isNaN(entryNum) || entryNum <= 0) {
+      setTpPrice('');
+      setTpPips('');
+      return;
+    }
+    const pips = pointsNum / 10;
+    setTpPips(Number(pips.toFixed(2)).toString());
+    const pipSize = getPipSize(entryNum);
+    const price = direction === 'Long' ? entryNum + (pips * pipSize) : entryNum - (pips * pipSize);
+    setTpPrice(Number(price.toFixed(5)).toString());
+  };
+
+  const handleSlPriceChange = (val: string) => {
+    setSlPrice(val);
+    const priceNum = parseFloat(val);
+    const entryNum = parseFloat(entryPrice);
+    if (isNaN(priceNum) || isNaN(entryNum) || entryNum <= 0) {
+      setSlPips('');
+      setSlPoints('');
+      return;
+    }
+    const pipSize = getPipSize(entryNum);
+    const diff = direction === 'Long' ? entryNum - priceNum : priceNum - entryNum;
+    const pips = diff / pipSize;
+    setSlPips(Number(pips.toFixed(2)).toString());
+    setSlPoints(Number((pips * 10).toFixed(1)).toString());
+  };
+
+  const handleSlPipsChange = (val: string) => {
+    setSlPips(val);
+    const pipsNum = parseFloat(val);
+    const entryNum = parseFloat(entryPrice);
+    if (isNaN(pipsNum) || isNaN(entryNum) || entryNum <= 0) {
+      setSlPrice('');
+      setSlPoints('');
+      return;
+    }
+    const pipSize = getPipSize(entryNum);
+    const price = direction === 'Long' ? entryNum - (pipsNum * pipSize) : entryNum + (pipsNum * pipSize);
+    setSlPrice(Number(price.toFixed(5)).toString());
+    setSlPoints(Number((pipsNum * 10).toFixed(1)).toString());
+  };
+
+  const handleSlPointsChange = (val: string) => {
+    setSlPoints(val);
+    const pointsNum = parseFloat(val);
+    const entryNum = parseFloat(entryPrice);
+    if (isNaN(pointsNum) || isNaN(entryNum) || entryNum <= 0) {
+      setSlPrice('');
+      setSlPips('');
+      return;
+    }
+    const pips = pointsNum / 10;
+    setSlPips(Number(pips.toFixed(2)).toString());
+    const pipSize = getPipSize(entryNum);
+    const price = direction === 'Long' ? entryNum - (pips * pipSize) : entryNum + (pips * pipSize);
+    setSlPrice(Number(price.toFixed(5)).toString());
+  };
+
+  // Live P&L preview based on selected outcome
   const previewPnl = (() => {
     const e = parseFloat(entryPrice);
-    const x = parseFloat(exitPrice);
     const s = parseFloat(positionSize);
-    if (isNaN(e) || isNaN(x) || isNaN(s)) return null;
-    return (direction === 'Long' ? x - e : e - x) * s;
+    if (isNaN(e) || isNaN(s)) return null;
+
+    if (outcome === 'Win') {
+      const tp = parseFloat(tpPrice);
+      if (isNaN(tp)) return null;
+      return (direction === 'Long' ? tp - e : e - tp) * s;
+    } else if (outcome === 'Loss') {
+      const sl = parseFloat(slPrice);
+      if (isNaN(sl)) return null;
+      return (direction === 'Long' ? sl - e : e - sl) * s;
+    }
+    return 0;
   })();
 
-  // Auto-calculate Risk/Reward based on Profit Level & Stop Level
+  // Auto-calculate Risk/Reward based on tpPrice & slPrice
   useEffect(() => {
     const entry = parseFloat(entryPrice);
-    const profit = parseFloat(profitLevel);
-    const stop = parseFloat(stopLevel);
+    const profit = parseFloat(tpPrice);
+    const stop = parseFloat(slPrice);
     if (!isNaN(entry) && !isNaN(profit) && !isNaN(stop)) {
       const risk = direction === 'Long' ? entry - stop : stop - entry;
       const reward = direction === 'Long' ? profit - entry : entry - profit;
@@ -384,24 +502,35 @@ function TradeForm({ date, onClose }: TradeFormProps) {
         setRiskReward('');
       }
     }
-  }, [entryPrice, profitLevel, stopLevel, direction]);
+  }, [entryPrice, tpPrice, slPrice, direction]);
 
   const handleSubmit = (ev: FormEvent) => {
     ev.preventDefault();
-    if (!pair || !entryPrice || !exitPrice || !positionSize) return;
+    if (!pair || !entryPrice || !positionSize) return;
     setSaving(true);
+
+    const entryNum = parseFloat(entryPrice);
+    const tpPriceNum = parseFloat(tpPrice) || entryNum;
+    const slPriceNum = parseFloat(slPrice) || entryNum;
+
+    let computedExitPrice = entryNum;
+    if (outcome === 'Win') {
+      computedExitPrice = tpPriceNum;
+    } else if (outcome === 'Loss') {
+      computedExitPrice = slPriceNum;
+    } else {
+      computedExitPrice = entryNum;
+    }
 
     addTrade({
       pair: pair.toUpperCase(),
       direction,
-      entryPrice: parseFloat(entryPrice),
-      exitPrice: parseFloat(exitPrice),
+      entryPrice: entryNum,
+      exitPrice: computedExitPrice,
       positionSize: parseFloat(positionSize),
-      profitLevel: profitLevel ? parseFloat(profitLevel) : undefined,
-      stopLevel: stopLevel ? parseFloat(stopLevel) : undefined,
+      profitLevel: tpPriceNum,
+      stopLevel: slPriceNum,
       riskReward: parseFloat(riskReward) || 0,
-      strategyTags,
-      emotionTags,
       notes,
       images,
       date,
@@ -437,7 +566,7 @@ function TradeForm({ date, onClose }: TradeFormProps) {
       <div className="grid grid-cols-2 gap-2 bg-journal-bg p-1 rounded-[var(--radius-button)]">
         <button
           type="button"
-          onClick={() => setDirection('Long')}
+          onClick={() => handleDirectionChange('Long')}
           className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all ${
             direction === 'Long'
               ? 'bg-profit-bg text-profit shadow-card'
@@ -448,7 +577,7 @@ function TradeForm({ date, onClose }: TradeFormProps) {
         </button>
         <button
           type="button"
-          onClick={() => setDirection('Short')}
+          onClick={() => handleDirectionChange('Short')}
           className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all ${
             direction === 'Short'
               ? 'bg-loss-bg text-loss shadow-card'
@@ -480,47 +609,10 @@ function TradeForm({ date, onClose }: TradeFormProps) {
               step="any"
               placeholder="0.00"
               value={entryPrice}
-              onChange={(e) => setEntryPrice(e.target.value)}
+              onChange={(e) => handleEntryChange(e.target.value)}
               required
             />
           </Field>
-          <Field label="Exit Price">
-            <input
-              className={inputCls}
-              type="number"
-              step="any"
-              placeholder="0.00"
-              value={exitPrice}
-              onChange={(e) => setExitPrice(e.target.value)}
-              required
-            />
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">
-          <Field label="Profit Level (TP)">
-            <input
-              className={inputCls}
-              type="number"
-              step="any"
-              placeholder="Target Price"
-              value={profitLevel}
-              onChange={(e) => setProfitLevel(e.target.value)}
-            />
-          </Field>
-          <Field label="Stop Level (SL)">
-            <input
-              className={inputCls}
-              type="number"
-              step="any"
-              placeholder="Stop Loss Price"
-              value={stopLevel}
-              onChange={(e) => setStopLevel(e.target.value)}
-            />
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">
           <Field label="Position Size">
             <input
               className={inputCls}
@@ -532,6 +624,93 @@ function TradeForm({ date, onClose }: TradeFormProps) {
               required
             />
           </Field>
+        </div>
+
+        {/* Take Profit (TP) Price, Pips, Points */}
+        <div className="flex flex-col gap-1.5 animate-fade-in">
+          <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
+            Take Profit (TP)
+          </span>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
+              <input
+                className={inputCls}
+                type="number"
+                step="any"
+                placeholder="Level"
+                value={tpPrice}
+                onChange={(e) => handleTpPriceChange(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PIPS</label>
+              <input
+                className={inputCls}
+                type="number"
+                step="any"
+                placeholder="Pips"
+                value={tpPips}
+                onChange={(e) => handleTpPipsChange(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">POINTS</label>
+              <input
+                className={inputCls}
+                type="number"
+                step="any"
+                placeholder="Points"
+                value={tpPoints}
+                onChange={(e) => handleTpPointsChange(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Stop Loss (SL) Price, Pips, Points */}
+        <div className="flex flex-col gap-1.5 animate-fade-in">
+          <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
+            Stop Loss (SL)
+          </span>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
+              <input
+                className={inputCls}
+                type="number"
+                step="any"
+                placeholder="Level"
+                value={slPrice}
+                onChange={(e) => handleSlPriceChange(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PIPS</label>
+              <input
+                className={inputCls}
+                type="number"
+                step="any"
+                placeholder="Pips"
+                value={slPips}
+                onChange={(e) => handleSlPipsChange(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">POINTS</label>
+              <input
+                className={inputCls}
+                type="number"
+                step="any"
+                placeholder="Points"
+                value={slPoints}
+                onChange={(e) => handleSlPointsChange(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">
           <Field label="Risk / Reward">
             <input
               className={inputCls}
@@ -541,6 +720,17 @@ function TradeForm({ date, onClose }: TradeFormProps) {
               value={riskReward}
               onChange={(e) => setRiskReward(e.target.value)}
             />
+          </Field>
+          <Field label="Outcome">
+            <select
+              className={inputCls}
+              value={outcome}
+              onChange={(e) => setOutcome(e.target.value as TradeOutcome)}
+            >
+              <option value="Win">🏆 Win (hits TP)</option>
+              <option value="Loss">❌ Loss (hits SL)</option>
+              <option value="Breakeven">⚖️ Breakeven</option>
+            </select>
           </Field>
         </div>
 
@@ -554,7 +744,7 @@ function TradeForm({ date, onClose }: TradeFormProps) {
             }`}
           >
             <span className="text-[0.8rem] font-semibold text-journal-text-secondary">
-              Estimated P&L
+              Estimated P&L ({outcome})
             </span>
             <span
               className={`font-mono text-[1.1rem] font-extrabold ${previewPnl >= 0 ? 'text-profit' : 'text-loss'}`}
@@ -564,30 +754,6 @@ function TradeForm({ date, onClose }: TradeFormProps) {
           </div>
         )}
       </div>
-
-      {/* Strategy tags */}
-      <TagSection label="Strategy">
-        {STRATEGY_TAGS.map((t) => (
-          <TagButton
-            key={t}
-            label={t}
-            active={strategyTags.includes(t)}
-            onClick={() => toggleStrat(t)}
-          />
-        ))}
-      </TagSection>
-
-      {/* Emotion tags */}
-      <TagSection label="Emotions">
-        {EMOTION_TAGS.map((t) => (
-          <TagButton
-            key={t}
-            label={`${EMOTION_ICONS[t]} ${t}`}
-            active={emotionTags.includes(t)}
-            onClick={() => toggleEmo(t)}
-          />
-        ))}
-      </TagSection>
 
       {/* Notes */}
       <Field label="Notes & Reasoning">
@@ -657,7 +823,7 @@ function TradeForm({ date, onClose }: TradeFormProps) {
         </button>
         <button
           type="submit"
-          disabled={!pair || !entryPrice || !exitPrice || !positionSize || saving}
+          disabled={!pair || !entryPrice || !positionSize || saving}
           className="px-5 py-2.5 rounded-[var(--radius-button)] bg-journal-text text-journal-text-inverse font-semibold text-[0.875rem] cursor-pointer hover:bg-[#1a1616] hover:shadow-card-hover transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? 'Saving...' : 'Save Trade'}
@@ -688,43 +854,4 @@ function Field({
   );
 }
 
-function TagSection({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
-        {label}
-      </span>
-      <div className="flex flex-wrap gap-1.5">{children}</div>
-    </div>
-  );
-}
 
-function TagButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1 text-[0.75rem] font-semibold px-2.5 py-1 rounded-full border cursor-pointer transition-all select-none ${
-        active
-          ? 'bg-journal-text text-journal-text-inverse border-journal-text'
-          : 'bg-journal-elevated text-journal-text-secondary border-border-light hover:border-border-strong hover:bg-journal-card'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
