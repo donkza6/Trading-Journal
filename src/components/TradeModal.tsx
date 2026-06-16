@@ -7,7 +7,7 @@ import React, {
   useRef,
   type FormEvent,
 } from 'react';
-import { useTrades } from '@/context/TradeContext';
+import { useProfiles, useTrades } from '@/context/ProfileContext';
 import type { TradeDirection, TradeOutcome } from '@/types';
 
 /* ═══════════════════════════════════════════
@@ -20,7 +20,8 @@ interface TradeModalProps {
 }
 
 export default function TradeModal({ date, onClose }: TradeModalProps) {
-  const { getDayLog, deleteTrade } = useTrades();
+  const { activeProfileId } = useProfiles();
+  const { getDayLog, deleteTrade } = useTrades(activeProfileId);
   const [showForm, setShowForm] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -281,7 +282,8 @@ interface TradeFormProps {
 }
 
 function TradeForm({ date, onClose }: TradeFormProps) {
-  const { addTrade } = useTrades();
+  const { activeProfileId } = useProfiles();
+  const { addTrade } = useTrades(activeProfileId);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [pair, setPair] = useState('');
@@ -533,7 +535,7 @@ function TradeForm({ date, onClose }: TradeFormProps) {
       riskReward: parseFloat(riskReward) || 0,
       notes,
       images,
-      date,
+      createdAt: date + 'T12:00:00',
     });
 
     setTimeout(() => {

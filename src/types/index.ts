@@ -1,36 +1,18 @@
-// ── Strategy & Emotion Tag Enums ──
-export type StrategyTag =
-  | 'Breakout'
-  | 'Breakdown'
-  | 'Trend Following'
-  | 'Reversal'
-  | 'Scalping'
-  | 'Swing'
-  | 'RSI'
-  | 'MACD'
-  | 'Support/Resistance'
-  | 'Supply/Demand'
-  | 'News Play'
-  | 'Gap Fill';
-
-export type EmotionTag =
-  | 'Confident'
-  | 'Neutral'
-  | 'Anxious'
-  | 'FOMO'
-  | 'Greedy'
-  | 'Fearful'
-  | 'Revenge'
-  | 'Patient'
-  | 'Disciplined'
-  | 'Impulsive';
-
 export type TradeDirection = 'Long' | 'Short';
 export type TradeOutcome = 'Win' | 'Loss' | 'Breakeven';
+
+// ── Profile ──
+export interface Profile {
+  id: string;
+  name: string;
+  avatarUrl: string; // Identifier for predefined avatars (e.g. "avatar-1", "avatar-2", etc.)
+  createdAt: string;
+}
 
 // ── Single Trade Entry ──
 export interface Trade {
   id: string;
+  profileId: string; // Belongs to a profile
   pair: string;
   direction: TradeDirection;
   entryPrice: number;

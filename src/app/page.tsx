@@ -1,393 +1,176 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useTrades } from '@/context/TradeContext';
-import CalendarGrid from '@/components/CalendarGrid';
-import TradeModal from '@/components/TradeModal';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useProfiles, AVATARS } from '@/context/ProfileContext';
 
-/* ═══════════════════════════════════════════
-   Main Page – Dashboard + Calendar + Modal
-   ═══════════════════════════════════════════ */
+export default function ProfileSelection() {
+  const { profiles, selectProfile, createProfile, isLoaded } = useProfiles();
+  const router = useRouter();
 
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-] as const;
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string>(AVATARS[0].id);
 
-export default function Home() {
-  const today = new Date();
-  const [month, setMonth] = useState(today.getMonth());
-  const [year, setYear] = useState(today.getFullYear());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-
-  const { isLoaded, metrics, dailyLogs } = useTrades();
-
-  /* ── Month navigation ── */
-  const goPrev = () => {
-    if (month === 0) { setMonth(11); setYear((y) => y - 1); }
-    else setMonth((m) => m - 1);
-  };
-  const goNext = () => {
-    if (month === 11) { setMonth(0); setYear((y) => y + 1); }
-    else setMonth((m) => m + 1);
-  };
-  const goToday = () => {
-    setMonth(today.getMonth());
-    setYear(today.getFullYear());
+  const handleSelect = (profileId: string) => {
+    selectProfile(profileId);
+    router.push('/journal');
   };
 
-  const isCurrentMonth =
-    month === today.getMonth() && year === today.getFullYear();
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProfileName.trim()) return;
 
-  /* ── Monthly aggregates ── */
-  const { monthlyPnl, monthlyCount } = useMemo(() => {
-    let pnl = 0;
-    let count = 0;
-    for (const [key, log] of dailyLogs) {
-      const [y, m] = key.split('-').map(Number);
-      if (y === year && m === month + 1) {
-        pnl += log.totalPnl;
-        count += log.trades.length;
-      }
-    }
-    return { monthlyPnl: pnl, monthlyCount: count };
-  }, [dailyLogs, month, year]);
-
-  /* ── Day click ── */
-  const handleDayClick = (date: string) => {
-    setSelectedDate(date);
-    setShowModal(true);
-  };
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedDate(null);
+    createProfile(newProfileName.trim(), selectedAvatarId);
+    setNewProfileName('');
+    setSelectedAvatarId(AVATARS[0].id);
+    setShowAddForm(false);
   };
 
-  /* ── Dashboard cards data ── */
-  const cards = [
-    {
-      icon: '📊',
-      label: 'Total Trades',
-      value: metrics.totalTrades.toString(),
-      color: '',
-    },
-    {
-      icon: '🎯',
-      label: 'Win Rate',
-      value: `${metrics.winRate.toFixed(1)}%`,
-      color:
-        metrics.winRate >= 50
-          ? 'text-profit'
-          : metrics.winRate > 0
-            ? 'text-loss'
-            : '',
-    },
-    {
-      icon: '💰',
-      label: 'Total P&L',
-      value: `${metrics.totalPnl >= 0 ? '+' : ''}$${metrics.totalPnl.toFixed(2)}`,
-      color: metrics.totalPnl >= 0 ? 'text-profit' : 'text-loss',
-    },
-    {
-      icon: '⚖️',
-      label: 'Avg R:R',
-      value: metrics.avgRiskReward.toFixed(2),
-      color:
-        metrics.avgRiskReward >= 1
-          ? 'text-profit'
-          : metrics.avgRiskReward > 0
-            ? 'text-breakeven'
-            : '',
-    },
-  ];
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-journal-bg flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-journal-text border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen max-w-[1100px] mx-auto px-6 pb-12 pt-6 max-md:px-4 max-sm:px-3 max-sm:pt-3 max-sm:pb-8">
-      {/* ═══ App Header ═══ */}
-      <header className="flex items-center justify-between mb-8 pb-6 border-b border-border-light animate-slide-down max-md:flex-col max-md:items-start max-md:gap-2 max-md:mb-6 max-md:pb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl leading-none">📈</span>
-          <h1 className="text-[1.4rem] font-black tracking-tight text-journal-text max-sm:text-[1.15rem]">
-            Trading Journal
-          </h1>
-        </div>
-        {isLoaded && metrics.totalTrades > 0 && (
-          <div className="flex flex-col items-end gap-0.5 max-md:items-start">
-            <span className="text-[0.68rem] font-semibold uppercase tracking-wider text-journal-text-muted">
-              All‑time P&L
-            </span>
-            <span
-              className={`font-mono text-[1.05rem] font-extrabold ${metrics.totalPnl >= 0 ? 'text-profit' : 'text-loss'}`}
-            >
-              {metrics.totalPnl >= 0 ? '+' : ''}${metrics.totalPnl.toFixed(2)}
-            </span>
-          </div>
-        )}
-      </header>
+    <div className="min-h-screen bg-journal-bg flex flex-col items-center justify-center p-6 text-journal-text select-none animate-fade-in">
+      <div className="max-w-[720px] w-full text-center">
+        {/* Title */}
+        <h1 className="text-3xl font-extrabold tracking-tight mb-2 max-sm:text-2.5xl">
+          Who's trading today?
+        </h1>
+        <p className="text-journal-text-secondary text-sm font-semibold mb-12 max-sm:mb-8">
+          Select a profile to access your personalized trading journal.
+        </p>
 
-      <main className="flex flex-col gap-6">
-        {/* ═══ Dashboard Summary ═══ */}
-        {!isLoaded ? (
-          <div className="h-[120px] rounded-[var(--radius-card)] animate-shimmer" />
-        ) : (
-          <section className="mb-2">
-            <div className="grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1 max-sm:gap-2">
-              {cards.map((card, i) => (
+        {/* Netflix-style profile grid */}
+        <div className="flex flex-wrap items-stretch justify-center gap-6 max-sm:gap-4">
+          {profiles.map((p) => {
+            const avatar = AVATARS.find((av) => av.id === p.avatarUrl) || AVATARS[0];
+            return (
+              <div
+                key={p.id}
+                className="group flex flex-col items-center gap-3 w-36 max-sm:w-28 cursor-pointer"
+                onClick={() => handleSelect(p.id)}
+              >
+                {/* Avatar Box */}
                 <div
-                  key={card.label}
-                  className="bg-journal-card rounded-[var(--radius-card)] p-6 border border-border-light shadow-card animate-slide-up hover:-translate-y-0.5 hover:shadow-card-hover transition-all max-sm:p-4"
-                  style={{ animationDelay: `${i * 80}ms` }}
+                  className="w-32 h-32 max-sm:w-24 max-sm:h-24 rounded-2xl flex items-center justify-center text-5xl shadow-card transition-all duration-300 group-hover:scale-105 group-hover:shadow-card-hover border-4 border-transparent group-hover:border-journal-text active:scale-[0.98]"
+                  style={{ backgroundColor: avatar.bg }}
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl leading-none">{card.icon}</span>
-                    <span className="text-[0.8rem] font-bold uppercase tracking-wider text-journal-text-muted">
-                      {card.label}
-                    </span>
-                  </div>
-                  <div
-                    className={`font-mono text-[1.6rem] font-bold tracking-tight ${card.color || 'text-journal-text'} max-sm:text-[1.35rem]`}
-                  >
-                    {card.value}
-                  </div>
+                  {avatar.emoji}
                 </div>
-              ))}
-            </div>
-
-            {/* Streak badge */}
-            {metrics.currentStreak.type !== 'None' &&
-              metrics.currentStreak.count > 1 && (
-                <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-journal-card rounded-full border border-border-light animate-fade-in">
-                  <span className="text-base">
-                    {metrics.currentStreak.type === 'Win' ? '🔥' : '❄️'}
-                  </span>
-                  <span className="text-[0.85rem] font-semibold text-journal-text-secondary">
-                    {metrics.currentStreak.count}{' '}
-                    {metrics.currentStreak.type} streak
-                  </span>
-                </div>
-              )}
-
-            {/* Equity Curve */}
-            {metrics.equityCurve.length > 1 && (
-              <div className="mt-6 bg-journal-card rounded-[var(--radius-card)] border border-border-light shadow-card p-6 animate-slide-up max-sm:p-4"
-                style={{ animationDelay: '350ms' }}>
-                <h3 className="text-[0.95rem] font-bold text-journal-text mb-4">
-                  Equity Curve
-                </h3>
-                <EquityCurve data={metrics.equityCurve} />
+                {/* Name */}
+                <span className="font-bold text-[0.95rem] text-journal-text-secondary group-hover:text-journal-text transition-colors truncate max-w-full">
+                  {p.name}
+                </span>
               </div>
-            )}
-          </section>
-        )}
+            );
+          })}
 
-        {/* ═══ Calendar Section ═══ */}
-        <section className="animate-fade-in" style={{ animationDelay: '200ms' }}>
-          {/* Calendar header */}
-          <div className="flex items-center justify-between mb-4 max-sm:flex-col max-sm:items-start max-sm:gap-2">
-            <div className="flex items-center gap-1">
-              <NavButton onClick={goPrev} label="Previous month">
-                ←
-              </NavButton>
-              <h2 className="text-[1.2rem] font-extrabold min-w-[200px] text-center tracking-tight max-md:text-[1.05rem] max-md:min-w-[160px] max-sm:text-[0.95rem] max-sm:min-w-0">
-                {MONTH_NAMES[month]} {year}
-              </h2>
-              <NavButton onClick={goNext} label="Next month">
-                →
-              </NavButton>
+          {/* Add Profile Card */}
+          {!showAddForm ? (
+            <div
+              className="group flex flex-col items-center gap-3 w-36 max-sm:w-28 cursor-pointer"
+              onClick={() => setShowAddForm(true)}
+            >
+              <div className="w-32 h-32 max-sm:w-24 max-sm:h-24 rounded-2xl bg-journal-card border-[3px] border-dashed border-journal-text-muted/40 flex flex-col items-center justify-center gap-1.5 transition-all duration-300 group-hover:scale-105 group-hover:border-journal-text group-hover:bg-journal-card/80 active:scale-[0.98]">
+                <span className="text-3xl text-journal-text-muted group-hover:text-journal-text transition-colors">
+                  +
+                </span>
+                <span className="text-[0.68rem] font-bold text-journal-text-muted group-hover:text-journal-text uppercase tracking-wider transition-colors">
+                  Add Profile
+                </span>
+              </div>
+              <span className="font-bold text-[0.95rem] text-transparent">
+                Add Profile
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Inline Add Profile Form */}
+        {showAddForm && (
+          <form
+            onSubmit={handleCreate}
+            className="mt-12 bg-journal-card rounded-[20px] p-6 border border-border-light shadow-card text-left flex flex-col gap-6 animate-scale-in max-sm:mt-8 max-sm:p-4"
+          >
+            <div className="flex items-center justify-between border-b border-border-light pb-3">
+              <h3 className="text-lg font-black tracking-tight">Create Profile</h3>
+              <button
+                type="button"
+                className="text-journal-text-secondary text-sm font-semibold hover:text-journal-text cursor-pointer"
+                onClick={() => setShowAddForm(false)}
+              >
+                ✕
+              </button>
             </div>
 
-            <div className="flex items-center gap-4">
-              {monthlyCount > 0 && (
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`font-mono text-[0.95rem] font-extrabold ${monthlyPnl >= 0 ? 'text-profit' : 'text-loss'}`}
+            {/* Profile name */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
+                Profile Name
+              </span>
+              <input
+                className="w-full text-[0.9rem] py-2.5 px-3.5 rounded-[var(--radius-button)] border-[1.5px] border-border-medium bg-journal-elevated text-journal-text outline-none transition-all duration-150 focus:border-journal-text focus:shadow-[0_0_0_3px_rgba(42,38,38,0.08)] placeholder:text-journal-text-muted"
+                type="text"
+                placeholder="Enter trader name"
+                value={newProfileName}
+                onChange={(e) => setNewProfileName(e.target.value)}
+                maxLength={12}
+                required
+                autoFocus
+              />
+            </div>
+
+            {/* Select avatar */}
+            <div className="flex flex-col gap-2">
+              <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
+                Select Avatar
+              </span>
+              <div className="flex flex-wrap gap-3">
+                {AVATARS.map((av) => (
+                  <button
+                    key={av.id}
+                    type="button"
+                    className={`w-12 h-12 rounded-xl text-2xl flex items-center justify-center cursor-pointer transition-all border-2 ${
+                      selectedAvatarId === av.id
+                        ? 'border-journal-text scale-105 shadow-card'
+                        : 'border-transparent hover:scale-102 hover:border-border-strong'
+                    }`}
+                    style={{ backgroundColor: av.bg }}
+                    onClick={() => setSelectedAvatarId(av.id)}
+                    aria-label={`Select avatar ${av.name}`}
                   >
-                    {monthlyPnl >= 0 ? '+' : ''}${monthlyPnl.toFixed(2)}
-                  </span>
-                  <span className="text-[0.78rem] text-journal-text-muted font-semibold">
-                    {monthlyCount} trades
-                  </span>
-                </div>
-              )}
-              {!isCurrentMonth && (
-                <button
-                  onClick={goToday}
-                  className="text-[0.8rem] font-semibold px-3.5 py-1.5 rounded-[var(--radius-button)] bg-transparent border-[1.5px] border-border-medium text-journal-text cursor-pointer hover:bg-journal-card hover:border-border-strong transition-all active:scale-[0.97]"
-                >
-                  Today
-                </button>
-              )}
+                    {av.emoji}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Calendar card */}
-          <div className="bg-journal-card rounded-[20px] p-6 border border-border-light shadow-card max-md:p-4 max-md:rounded-[var(--radius-card)] max-sm:p-2 max-sm:rounded-[var(--radius-button)]">
-            <CalendarGrid
-              year={year}
-              month={month}
-              onDayClick={handleDayClick}
-              selectedDate={selectedDate}
-            />
-          </div>
-        </section>
-      </main>
-
-      {/* ═══ Trade Modal ═══ */}
-      {showModal && selectedDate && (
-        <TradeModal date={selectedDate} onClose={closeModal} />
-      )}
+            {/* Form actions */}
+            <div className="flex gap-2 justify-end border-t border-border-light pt-4">
+              <button
+                type="button"
+                className="px-5 py-2.5 rounded-[var(--radius-button)] bg-transparent border-[1.5px] border-border-medium text-journal-text font-semibold text-[0.875rem] cursor-pointer hover:bg-journal-card hover:border-border-strong transition-all active:scale-[0.97]"
+                onClick={() => setShowAddForm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!newProfileName.trim()}
+                className="px-5 py-2.5 rounded-[var(--radius-button)] bg-journal-text text-journal-text-inverse font-semibold text-[0.875rem] cursor-pointer hover:bg-[#1a1616] hover:shadow-card-hover transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save Profile
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
-  );
-}
-
-/* ═══════════════════════════════════════════
-   Nav Button (arrow)
-   ═══════════════════════════════════════════ */
-
-function NavButton({
-  onClick,
-  label,
-  children,
-}: {
-  onClick: () => void;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-button)] bg-transparent text-journal-text-secondary cursor-pointer hover:bg-journal-text/6 hover:text-journal-text transition-colors active:scale-[0.95]"
-    >
-      {children}
-    </button>
-  );
-}
-
-/* ═══════════════════════════════════════════
-   Equity Curve (SVG)
-   ═══════════════════════════════════════════ */
-
-function EquityCurve({
-  data,
-}: {
-  data: { date: string; cumPnl: number }[];
-}) {
-  if (data.length < 2) return null;
-
-  const W = 800;
-  const H = 200;
-  const pad = { t: 20, r: 20, b: 30, l: 60 };
-
-  const vals = data.map((d) => d.cumPnl);
-  const min = Math.min(...vals, 0);
-  const max = Math.max(...vals, 0);
-  const range = max - min || 1;
-
-  const x = (i: number) =>
-    pad.l + (i / (data.length - 1)) * (W - pad.l - pad.r);
-  const y = (v: number) =>
-    pad.t + (1 - (v - min) / range) * (H - pad.t - pad.b);
-
-  const line = data
-    .map((d, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(d.cumPnl)}`)
-    .join(' ');
-  const area =
-    line +
-    ` L ${x(data.length - 1)} ${y(0)} L ${x(0)} ${y(0)} Z`;
-
-  const positive = data[data.length - 1].cumPnl >= 0;
-  const stroke = positive
-    ? 'var(--color-profit)'
-    : 'var(--color-loss)';
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-      <defs>
-        <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={stroke} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-
-      {/* Zero line */}
-      <line
-        x1={pad.l} x2={W - pad.r} y1={y(0)} y2={y(0)}
-        stroke="var(--color-border-medium)"
-        strokeDasharray="4 4"
-        strokeWidth="1"
-      />
-      <text
-        x={pad.l - 8} y={y(0) + 4}
-        textAnchor="end"
-        fill="var(--color-journal-text-muted)"
-        fontSize="11"
-        fontFamily="var(--font-mono)"
-      >
-        $0
-      </text>
-
-      {/* Area */}
-      <path d={area} fill="url(#eqGrad)" />
-
-      {/* Line */}
-      <path
-        d={line}
-        fill="none"
-        stroke={stroke}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* End dot */}
-      <circle
-        cx={x(data.length - 1)}
-        cy={y(data[data.length - 1].cumPnl)}
-        r="5"
-        fill={stroke}
-        stroke="var(--color-journal-card)"
-        strokeWidth="2"
-      />
-
-      {/* Labels */}
-      <text
-        x={pad.l - 8} y={pad.t + 4}
-        textAnchor="end"
-        fill="var(--color-journal-text-muted)"
-        fontSize="11"
-        fontFamily="var(--font-mono)"
-      >
-        ${max.toFixed(0)}
-      </text>
-      <text
-        x={pad.l - 8} y={H - pad.b + 4}
-        textAnchor="end"
-        fill="var(--color-journal-text-muted)"
-        fontSize="11"
-        fontFamily="var(--font-mono)"
-      >
-        ${min.toFixed(0)}
-      </text>
-      <text
-        x={x(0)} y={H - 6}
-        textAnchor="start"
-        fill="var(--color-journal-text-muted)"
-        fontSize="10"
-        fontFamily="var(--font-mono)"
-      >
-        {data[0].date.slice(5)}
-      </text>
-      <text
-        x={x(data.length - 1)} y={H - 6}
-        textAnchor="end"
-        fill="var(--color-journal-text-muted)"
-        fontSize="10"
-        fontFamily="var(--font-mono)"
-      >
-        {data[data.length - 1].date.slice(5)}
-      </text>
-    </svg>
   );
 }
