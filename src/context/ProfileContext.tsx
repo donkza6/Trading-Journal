@@ -10,6 +10,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import type { Profile, Trade, DailyLog, PortfolioMetrics } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 /* ═══════════════════════════════════════════
    Predefined Sleek Avatars
@@ -22,157 +23,6 @@ export const AVATARS = [
   { id: 'avatar-orange', name: 'Amber', initials: 'AB', bg: '#fef3c7', color: '#d97706' },
   { id: 'avatar-dark', name: 'Obsidian', initials: 'OB', bg: '#f3f4f6', color: '#1f2937' },
 ] as const;
-
-/* ═══════════════════════════════════════════
-   Simulated Real-Time Cloud Database Setup
-   ═══════════════════════════════════════════ */
-
-type ListenerCallback = () => void;
-
-class RealtimeDatabase {
-  private listeners: Set<ListenerCallback> = new Set();
-  private profiles: Profile[] = [];
-  private trades: Trade[] = [];
-
-  constructor() {
-    if (typeof window !== 'undefined') {
-      try {
-        const rawProfiles = localStorage.getItem('trading-journal-profiles-v2');
-        const rawTrades = localStorage.getItem('trading-journal-trades-v2');
-        
-        if (rawProfiles) {
-          this.profiles = JSON.parse(rawProfiles);
-        } else {
-          // Seed default profiles
-          this.profiles = [
-            { id: 'profile-a', name: 'User A', avatarUrl: 'avatar-red', createdAt: new Date().toISOString() },
-            { id: 'profile-b', name: 'User B', avatarUrl: 'avatar-blue', createdAt: new Date().toISOString() },
-          ];
-          this.saveProfiles();
-        }
-
-        if (rawTrades) {
-          this.trades = JSON.parse(rawTrades);
-        } else {
-          // Seed default mock trades for User A
-          this.trades = [
-            {
-              id: 'trade-1',
-              profileId: 'profile-a',
-              pair: 'EUR/USD',
-              direction: 'Long',
-              entryPrice: 1.1000,
-              exitPrice: 1.1050,
-              positionSize: 100000,
-              profitLevel: 1.1050,
-              stopLevel: 1.0980,
-              pnl: 500,
-              outcome: 'Win',
-              riskReward: 2.5,
-              notes: 'Hit take profit target cleanly on breakout.',
-              images: [],
-              createdAt: new Date().toISOString().slice(0, 10) + 'T12:00:00',
-            },
-            {
-              id: 'trade-2',
-              profileId: 'profile-a',
-              pair: 'BTC/USDT',
-              direction: 'Short',
-              entryPrice: 60000,
-              exitPrice: 59000,
-              positionSize: 0.5,
-              profitLevel: 57000,
-              stopLevel: 61000,
-              pnl: 500,
-              outcome: 'Win',
-              riskReward: 3.0,
-              notes: 'Riding the rejection at the psychological 60k level.',
-              images: [],
-              createdAt: new Date().toISOString().slice(0, 10) + 'T12:00:00',
-            }
-          ];
-          this.saveTrades();
-        }
-      } catch (err) {
-        console.error('[Database] Failed to initialize:', err);
-      }
-    }
-  }
-
-  private saveProfiles() {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('trading-journal-profiles-v2', JSON.stringify(this.profiles));
-    }
-  }
-
-  private saveTrades() {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('trading-journal-trades-v2', JSON.stringify(this.trades));
-    }
-  }
-
-  public subscribe(cb: ListenerCallback): () => void {
-    this.listeners.add(cb);
-    return () => {
-      this.listeners.delete(cb);
-    };
-  }
-
-  private notify() {
-    for (const listener of this.listeners) {
-      listener();
-    }
-  }
-
-  // Profiles operations
-  public getProfiles(): Profile[] {
-    return [...this.profiles];
-  }
-
-  public addProfile(name: string, avatarUrl: string): Profile {
-    const newProfile: Profile = {
-      id: 'profile-' + Math.random().toString(36).substring(2, 9),
-      name,
-      avatarUrl,
-      createdAt: new Date().toISOString(),
-    };
-    this.profiles.push(newProfile);
-    this.saveProfiles();
-    this.notify();
-    return newProfile;
-  }
-
-  // Trades operations
-  public getTrades(profileId: string): Trade[] {
-    return this.trades.filter((t) => t.profileId === profileId);
-  }
-
-  public addTrade(trade: Omit<Trade, 'id'>): Trade {
-    const newTrade: Trade = {
-      ...trade,
-      id: 'trade-' + Math.random().toString(36).substring(2, 9),
-    };
-    this.trades.push(newTrade);
-    this.saveTrades();
-    this.notify();
-    return newTrade;
-  }
-
-  public updateTrade(id: string, updatedFields: Omit<Trade, 'id' | 'profileId'>) {
-    this.trades = this.trades.map((t) => t.id === id ? { ...t, ...updatedFields } : t);
-    this.saveTrades();
-    this.notify();
-  }
-
-  public deleteTrade(id: string) {
-    this.trades = this.trades.filter((t) => t.id !== id);
-    this.saveTrades();
-    this.notify();
-  }
-}
-
-// Global single database instance
-const db = new RealtimeDatabase();
 
 /* ═══════════════════════════════════════════
    Helper Metrics calculations
@@ -267,7 +117,7 @@ interface ProfileContextValue {
   activeProfile: Profile | null;
   activeProfileId: string | null;
   selectProfile: (id: string | null) => void;
-  createProfile: (name: string, avatarUrl: string) => Profile;
+  createProfile: (name: string, avatarUrl: string) => Promise<void>;
   isLoaded: boolean;
 }
 
@@ -278,23 +128,53 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Sync profiles and handle hydration
+  // Sync profiles from Supabase and listen for realtime updates
+  const fetchProfiles = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('[Supabase] Error fetching profiles:', error);
+    } else if (data) {
+      setProfiles(
+        data.map((p) => ({
+          id: p.id,
+          name: p.name,
+          avatarUrl: p.avatar_url,
+          createdAt: p.created_at,
+        }))
+      );
+    }
+    setIsLoaded(true);
+  }, []);
+
   useEffect(() => {
-    setProfiles(db.getProfiles());
+    fetchProfiles();
 
     // Load active profile from localStorage if any
     const savedActiveId = localStorage.getItem('trading-journal-active-profile-id');
     if (savedActiveId) {
       setActiveProfileId(savedActiveId);
     }
-    setIsLoaded(true);
 
-    // Subscribe to DB changes
-    const unsubscribe = db.subscribe(() => {
-      setProfiles(db.getProfiles());
-    });
-    return () => unsubscribe();
-  }, []);
+    // Subscribe to realtime profiles updates
+    const channel = supabase
+      .channel('realtime_profiles')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          fetchProfiles();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchProfiles]);
 
   const selectProfile = useCallback((id: string | null) => {
     setActiveProfileId(id);
@@ -305,8 +185,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const createProfile = useCallback((name: string, avatarUrl: string) => {
-    return db.addProfile(name, avatarUrl);
+  const createProfile = useCallback(async (name: string, avatarUrl: string) => {
+    const { error } = await supabase
+      .from('profiles')
+      .insert([{ name, avatar_url: avatarUrl }]);
+
+    if (error) {
+      console.error('[Supabase] Error creating profile:', error);
+      throw error;
+    }
   }, []);
 
   const activeProfile = useMemo(() => {
@@ -337,37 +224,76 @@ export function useProfiles() {
 }
 
 /* ═══════════════════════════════════════════
-   Real-Time custom hook for trades
+   Real-Time custom hook for trades linked to Supabase
    ═══════════════════════════════════════════ */
 
 export function useTrades(profileId: string | null) {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchAndSync = useCallback(() => {
+  const fetchTrades = useCallback(async () => {
     if (!profileId) {
       setTrades([]);
       setLoading(false);
       return;
     }
-    setTrades(db.getTrades(profileId));
+    const { data, error } = await supabase
+      .from('trades')
+      .select('*')
+      .eq('profile_id', profileId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[Supabase] Error fetching trades:', error);
+    } else if (data) {
+      setTrades(
+        data.map((t) => ({
+          id: t.id,
+          profileId: t.profile_id,
+          pair: t.pair,
+          direction: t.direction as 'Long' | 'Short',
+          entryPrice: Number(t.entry_price),
+          exitPrice: Number(t.exit_price),
+          positionSize: Number(t.position_size),
+          profitLevel: t.profit_level ? Number(t.profit_level) : undefined,
+          stopLevel: t.stop_level ? Number(t.stop_level) : undefined,
+          pnl: Number(t.pnl),
+          outcome: t.outcome as 'Win' | 'Loss' | 'Breakeven',
+          riskReward: Number(t.risk_reward),
+          notes: t.notes || '',
+          images: t.images || [],
+          createdAt: t.created_at,
+        }))
+      );
+    }
     setLoading(false);
   }, [profileId]);
 
   useEffect(() => {
     setLoading(true);
-    fetchAndSync();
+    fetchTrades();
 
-    // Subscribe to real-time sync database notifications
-    const unsubscribe = db.subscribe(() => {
-      fetchAndSync();
-    });
+    if (!profileId) return;
 
-    return () => unsubscribe();
-  }, [fetchAndSync]);
+    // Subscribe to realtime trades updates filtered by profile ID
+    const channel = supabase
+      .channel(`realtime_trades_${profileId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trades', filter: `profile_id=eq.${profileId}` },
+        () => {
+          fetchTrades();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profileId, fetchTrades]);
 
   const addTrade = useCallback(
-    (tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'>) => {
+    async (tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'>) => {
       if (!profileId) return;
       const { direction, entryPrice, exitPrice, positionSize } = tradeInput;
       const rawPnl = direction === 'Long'
@@ -382,18 +308,37 @@ export function useTrades(profileId: string | null) {
         outcome = 'Loss';
       }
 
-      db.addTrade({
-        ...tradeInput,
-        profileId,
-        pnl,
-        outcome,
-      });
+      const { error } = await supabase
+        .from('trades')
+        .insert([
+          {
+            profile_id: profileId,
+            pair: tradeInput.pair,
+            direction,
+            entry_price: entryPrice,
+            exit_price: exitPrice,
+            position_size: positionSize,
+            profit_level: tradeInput.profitLevel,
+            stop_level: tradeInput.stopLevel,
+            pnl,
+            outcome,
+            risk_reward: tradeInput.riskReward,
+            notes: tradeInput.notes,
+            images: tradeInput.images,
+            created_at: tradeInput.createdAt,
+          },
+        ]);
+
+      if (error) {
+        console.error('[Supabase] Error saving trade:', error);
+        throw error;
+      }
     },
     [profileId]
   );
 
   const updateTrade = useCallback(
-    (id: string, tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'>) => {
+    async (id: string, tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'>) => {
       const { direction, entryPrice, exitPrice, positionSize } = tradeInput;
       const rawPnl = direction === 'Long'
         ? (exitPrice - entryPrice) * positionSize
@@ -407,17 +352,43 @@ export function useTrades(profileId: string | null) {
         outcome = 'Loss';
       }
 
-      db.updateTrade(id, {
-        ...tradeInput,
-        pnl,
-        outcome,
-      });
+      const { error } = await supabase
+        .from('trades')
+        .update({
+          pair: tradeInput.pair,
+          direction,
+          entry_price: entryPrice,
+          exit_price: exitPrice,
+          position_size: positionSize,
+          profit_level: tradeInput.profitLevel,
+          stop_level: tradeInput.stopLevel,
+          pnl,
+          outcome,
+          risk_reward: tradeInput.riskReward,
+          notes: tradeInput.notes,
+          images: tradeInput.images,
+          created_at: tradeInput.createdAt,
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error('[Supabase] Error updating trade:', error);
+        throw error;
+      }
     },
     []
   );
 
-  const deleteTrade = useCallback((id: string) => {
-    db.deleteTrade(id);
+  const deleteTrade = useCallback(async (id: string) => {
+    const { error } = await supabase
+      .from('trades')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('[Supabase] Error deleting trade:', error);
+      throw error;
+    }
   }, []);
 
   const dailyLogs = useMemo(() => buildDailyLogs(trades), [trades]);
