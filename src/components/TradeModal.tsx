@@ -72,9 +72,10 @@ async function uploadTradeImage(file: File): Promise<string> {
 interface TradeModalProps {
   date: string;
   onClose: () => void;
+  initialTrade?: Trade | null;
 }
 
-export default function TradeModal({ date, onClose }: TradeModalProps) {
+export default function TradeModal({ date, onClose, initialTrade = null }: TradeModalProps) {
   const { activeProfileId } = useProfiles();
   const { getDayLog, deleteTrade } = useTrades(activeProfileId);
   const [showForm, setShowForm] = useState(false);
@@ -85,6 +86,13 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
 
   const dayLog = getDayLog(date);
   const trades = dayLog?.trades ?? [];
+
+  useEffect(() => {
+    if (initialTrade) {
+      setEditingTrade(initialTrade);
+      setShowForm(true);
+    }
+  }, [initialTrade]);
 
   // Keyboard shortcut — Escape closes layers
   const handleKey = useCallback(
@@ -184,8 +192,8 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                             <div className="flex items-center gap-2">
                               <span
                                 className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-extrabold ${trade.direction === 'Long'
-                                    ? 'bg-emerald-500/10 text-emerald-600'
-                                    : 'bg-rose-500/10 text-rose-600'
+                                  ? 'bg-emerald-500/10 text-emerald-600'
+                                  : 'bg-rose-500/10 text-rose-600'
                                   }`}
                               >
                                 {trade.direction === 'Long' ? (
@@ -199,9 +207,9 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                               </span>
                             </div>
                             <span
-                              className={`font-mono font-extrabold text-base ${trade.pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+                              className={`font-mono font-extrabold text-base ${trade.pnl !== undefined && trade.pnl !== null && trade.pnl >= 0 ? 'text-emerald-600' : (trade.pnl !== undefined && trade.pnl !== null ? 'text-rose-600' : 'text-journal-text-muted')}`}
                             >
-                              {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                              {trade.pnl !== undefined && trade.pnl !== null ? `${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}` : '—'}
                             </span>
                           </div>
 
@@ -209,7 +217,7 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                           <div className="grid grid-cols-3 gap-x-2 gap-y-3 py-2.5 border-y border-border-light max-sm:grid-cols-2">
                             {[
                               { label: 'Entry', val: `$${trade.entryPrice.toLocaleString()}`, icon: LogIn },
-                              { label: 'Exit', val: `$${trade.exitPrice.toLocaleString()}`, icon: LogOut },
+                              { label: 'Exit', val: trade.exitPrice !== undefined && trade.exitPrice !== null ? `$${trade.exitPrice.toLocaleString()}` : '—', icon: LogOut },
                               { label: 'Size', val: trade.positionSize.toString(), icon: Layers },
                               {
                                 label: 'Profit Lvl',
@@ -412,6 +420,7 @@ function TradeImageEditor({ trade, onClose }: TradeImageEditorProps) {
   const [dragActive, setDragActive] = useState(false);
   const [saving, setSaving] = useState(false);
 
+
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -479,6 +488,7 @@ function TradeImageEditor({ trade, onClose }: TradeImageEditorProps) {
         image_url: finalList[0] || '',
         images: finalList.slice(1),
         createdAt: trade.createdAt,
+        status: trade.status,
       });
 
       onClose();
@@ -566,8 +576,8 @@ function TradeImageEditor({ trade, onClose }: TradeImageEditorProps) {
         onDrop={handleDrop}
         onClick={() => fileRef.current?.click()}
         className={`w-full min-h-[100px] rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer p-4 text-center transition-all duration-200 ${dragActive
-            ? 'border-journal-text bg-journal-bg/50'
-            : 'border-neutral-300 bg-transparent hover:border-neutral-400 hover:bg-neutral-50/50'
+          ? 'border-journal-text bg-journal-bg/50'
+          : 'border-neutral-300 bg-transparent hover:border-neutral-400 hover:bg-neutral-50/50'
           }`}
       >
         <Upload className="w-4 h-4 text-neutral-500" />
@@ -631,12 +641,11 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
   const [riskReward, setRiskReward] = useState(editingTrade?.riskReward ? editingTrade.riskReward.toString() : '');
   const [outcome, setOutcome] = useState<TradeOutcome>(editingTrade?.outcome ?? 'Win');
   const [notes, setNotes] = useState(editingTrade?.notes ?? '');
-  const [images] = useState<string[]>(editingTrade?.images ?? []);
   const [saving, setSaving] = useState(false);
 
-  // Storage upload states
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>(editingTrade?.image_url ?? '');
+  // Storage upload states (support multiple files)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>(() => (editingTrade?.image_url ? [editingTrade.image_url, ...(editingTrade.images ?? [])] : []));
   const [dragActive, setDragActive] = useState(false);
 
   // Position sizing calculator states
@@ -654,6 +663,10 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
   // Advanced info (news event)
   const [showAdvancedInfo, setShowAdvancedInfo] = useState(false);
   const [newsEvent, setNewsEvent] = useState<string>(editingTrade?.news_event ?? 'None');
+  const [isActiveEntry, setIsActiveEntry] = useState(false);
+  const [closeExitPrice, setCloseExitPrice] = useState('');
+  const [closePnl, setClosePnl] = useState('');
+  const [breakevenPrice, setBreakevenPrice] = useState<string>(editingTrade?.exitPrice ? String(editingTrade.exitPrice) : '');
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -669,25 +682,48 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
+      if (files.length === 0) return;
+      setSelectedFiles((prev) => [...prev, ...files]);
+      setPreviewUrls((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files).filter((f) => f.type.startsWith('image/'));
+      if (files.length === 0) return;
+      setSelectedFiles((prev) => [...prev, ...files]);
+      setPreviewUrls((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
     }
+    if (e.target) e.target.value = '';
   };
 
-  const handleRemoveImage = () => {
-    setSelectedFile(null);
-    setPreviewUrl('');
+  const handleRemoveImage = (index: number) => {
+    setPreviewUrls((prev) => {
+      const url = prev[index];
+      try { if (url && url.startsWith('blob:')) URL.revokeObjectURL(url); } catch (e) { }
+      return prev.filter((_, i) => i !== index);
+    });
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
+
+  // Persist last used pair to localStorage so user doesn't retype it
+  useEffect(() => {
+    if (!editingTrade) {
+      try {
+        const last = localStorage.getItem('journal.lastPair');
+        if (last) setPair(last);
+      } catch (e) { }
+    }
+  }, [editingTrade]);
+
+  useEffect(() => {
+    try {
+      if (pair) localStorage.setItem('journal.lastPair', pair);
+    } catch (e) { }
+  }, [pair]);
 
   // Helper to guess pip size
   const getPipSize = useCallback((entry: number) => {
@@ -913,15 +949,15 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
     setSaving(true);
 
     try {
-      let finalImageUrl = previewUrl;
-
-      // Upload file to Supabase Storage if new image selected
-      if (selectedFile) {
+      // Upload any newly selected files to Supabase Storage and build final image list
+      const uploadedUrls: string[] = [];
+      if (selectedFiles.length > 0) {
         try {
-          finalImageUrl = await uploadTradeImage(selectedFile);
+          for (const f of selectedFiles) {
+            uploadedUrls.push(await uploadTradeImage(f));
+          }
         } catch (uploadError) {
-          const message =
-            uploadError instanceof Error ? uploadError.message : 'Unknown upload error';
+          const message = uploadError instanceof Error ? uploadError.message : 'Unknown upload error';
           console.error('[Supabase Storage] Upload error:', message);
           alert('Failed to upload chart image to storage: ' + message);
           setSaving(false);
@@ -929,46 +965,84 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
         }
       }
 
-      const entryNum = parseFloat(entryPrice);
-      const tpPriceNum = parseFloat(tpPrice) || entryNum;
-      const slPriceNum = parseFloat(slPrice) || entryNum;
+      // Combine existing images (if editing) with newly uploaded ones
+      const existing = editingTrade
+        ? ([editingTrade.image_url, ...(editingTrade.images ?? [])].filter((x): x is string => Boolean(x)))
+        : (previewUrls.filter(Boolean) as string[]);
+      const finalList = ([...existing, ...uploadedUrls].filter(Boolean) as string[]);
+      const finalImageUrl = finalList[0] || '';
 
-      let computedExitPrice = entryNum;
-      if (outcome === 'Win') {
-        computedExitPrice = tpPriceNum;
-      } else if (outcome === 'Loss') {
-        computedExitPrice = slPriceNum;
+
+      const entryNum = parseFloat(entryPrice);
+      const tpPriceNum = parseFloat(tpPrice) || undefined;
+      const slPriceNum = parseFloat(slPrice) || undefined;
+
+      // Determine status
+      let status: 'OPEN' | 'CLOSED' = isActiveEntry ? 'OPEN' : 'CLOSED';
+
+      // If editing an existing OPEN trade and the user provided close values, treat as close
+      if (editingTrade && editingTrade.status === 'OPEN' && closeExitPrice) {
+        status = 'CLOSED';
+      }
+
+      let exitPriceForSave: number | null = null;
+      let pnlForSave: number | null = null;
+
+      if (status === 'OPEN') {
+        exitPriceForSave = null;
+        pnlForSave = null;
       } else {
-        computedExitPrice = entryNum;
+        // Closed trade — compute exitPrice/pnl either from outcome/TP/SL or from explicit close fields
+        if (editingTrade && editingTrade.status === 'OPEN' && closeExitPrice) {
+          exitPriceForSave = parseFloat(closeExitPrice);
+          pnlForSave = closePnl ? Number(parseFloat(closePnl).toFixed(2)) : null;
+        } else {
+          const breakevenPriceNum = parseFloat(breakevenPrice);
+          const computedExitPrice = outcome === 'Win'
+            ? (tpPriceNum ?? entryNum)
+            : outcome === 'Loss'
+              ? (slPriceNum ?? entryNum)
+              : (!isNaN(breakevenPriceNum) ? breakevenPriceNum : entryNum);
+          exitPriceForSave = computedExitPrice;
+          const rawPnl = direction === 'Long' ? (exitPriceForSave - entryNum) * parseFloat(positionSize) : (entryNum - exitPriceForSave) * parseFloat(positionSize);
+          pnlForSave = Number(rawPnl.toFixed(2));
+        }
       }
 
       const tradeData = {
         pair: pair.toUpperCase(),
         direction,
         entryPrice: entryNum,
-        exitPrice: computedExitPrice,
+        exitPrice: exitPriceForSave,
         positionSize: parseFloat(positionSize),
         profitLevel: tpPriceNum,
         stopLevel: slPriceNum,
         riskReward: parseFloat(riskReward) || 0,
         notes,
-        images,
+        images: finalList.slice(1),
         image_url: finalImageUrl,
         setup_grade: setupGrade,
         news_event: newsEvent,
         createdAt: date + 'T12:00:00',
+        status,
       };
 
       if (editingTrade) {
         await updateTrade(editingTrade.id, tradeData);
+        // If we computed pnlForSave manually for closing, update the row directly for pnl/outcome consistency
+        if (status === 'CLOSED' && pnlForSave !== null) {
+          // updateTrade already sets pnl/outcome when status is CLOSED
+        }
       } else {
         await addTrade(tradeData);
       }
 
       onClose();
-    } catch (err) {
-      console.error('[Trade Form] Submission failed:', err);
-      alert('Failed to save trade details.');
+    } catch (error: any) {
+      console.error('Supabase Insert Error:', error);
+      // also keep the original logging for context
+      console.error('[Trade Form] Submission failed:', error);
+      alert('Error: ' + (error?.message || String(error)));
     } finally {
       setSaving(false);
     }
@@ -997,14 +1071,52 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
           </span>
         </div>
 
+        {/* Create mode toggle: Closed vs Active */}
+        {!editingTrade && (
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsActiveEntry(false)}
+              className={`px-3 py-1.5 rounded-md font-semibold ${!isActiveEntry ? 'bg-journal-text text-journal-text-inverse' : 'bg-transparent text-journal-text-muted'}`}>
+              Log Closed Trade
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsActiveEntry(true)}
+              className={`px-3 py-1.5 rounded-md font-semibold ${isActiveEntry ? 'bg-emerald-50 text-emerald-700' : 'bg-transparent text-journal-text-muted'}`}>
+              Enter Active Trade
+            </button>
+          </div>
+        )}
+
+        {/* Close existing OPEN trade */}
+        {editingTrade && editingTrade.status === 'OPEN' && (
+          <div className="mt-3 p-3 rounded-lg border border-border-light bg-journal-bg/50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold">Close Position</span>
+              <span className="text-sm text-journal-text-muted">Provide final exit and P&L</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[0.75rem] text-journal-text-muted block mb-1">Exit Price</label>
+                <input className={inputCls} type="number" step="any" value={closeExitPrice} onChange={(e) => setCloseExitPrice(e.target.value)} placeholder="e.g. 1234.56" />
+              </div>
+              <div>
+                <label className="text-[0.75rem] text-journal-text-muted block mb-1">Final P&L ($)</label>
+                <input className={inputCls} type="number" step="any" value={closePnl} onChange={(e) => setClosePnl(e.target.value)} placeholder="e.g. 12.34" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Direction toggle */}
         <div className="grid grid-cols-2 gap-2 bg-journal-bg p-1 rounded-[var(--radius-button)]">
           <button
             type="button"
             onClick={() => handleDirectionChange('Long')}
             className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all flex items-center justify-center gap-1 ${direction === 'Long'
-                ? 'bg-emerald-500/10 text-emerald-700 shadow-sm'
-                : 'bg-transparent text-journal-text-secondary'
+              ? 'bg-emerald-500/10 text-emerald-700 shadow-sm'
+              : 'bg-transparent text-journal-text-secondary'
               }`}
           >
             <ArrowUpRight className="w-4 h-4" /> Long
@@ -1013,8 +1125,8 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
             type="button"
             onClick={() => handleDirectionChange('Short')}
             className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all flex items-center justify-center gap-1 ${direction === 'Short'
-                ? 'bg-rose-500/10 text-rose-700 shadow-sm'
-                : 'bg-transparent text-journal-text-secondary'
+              ? 'bg-rose-500/10 text-rose-700 shadow-sm'
+              : 'bg-transparent text-journal-text-secondary'
               }`}
           >
             <ArrowDownRight className="w-4 h-4" /> Short
@@ -1123,132 +1235,147 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
             </div>
           </div>
 
-          {/* Take Profit (TP) Price, Pips, Points */}
-          <div className="flex flex-col gap-1.5 animate-fade-in">
-            <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
-              Take Profit (TP)
-            </span>
-            <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1 max-sm:gap-2">
-              <div>
-                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
-                <input
-                  className={inputCls}
-                  type="number"
-                  step="any"
-                  placeholder="Level"
-                  value={tpPrice}
-                  onChange={(e) => handleTpPriceChange(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PIPS</label>
-                <input
-                  className={inputCls}
-                  type="number"
-                  step="any"
-                  placeholder="Pips"
-                  value={tpPips}
-                  onChange={(e) => handleTpPipsChange(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">POINTS</label>
-                <input
-                  className={inputCls}
-                  type="number"
-                  step="any"
-                  placeholder="Points"
-                  value={tpPoints}
-                  onChange={(e) => handleTpPointsChange(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Stop Loss (SL) Price, Pips, Points */}
-          <div className="flex flex-col gap-1.5 animate-fade-in">
-            <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
-              Stop Loss (SL)
-            </span>
-            <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1 max-sm:gap-2">
-              <div>
-                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
-                <input
-                  className={inputCls}
-                  type="number"
-                  step="any"
-                  placeholder="Level"
-                  value={slPrice}
-                  onChange={(e) => handleSlPriceChange(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PIPS</label>
-                <input
-                  className={inputCls}
-                  type="number"
-                  step="any"
-                  placeholder="Pips"
-                  value={slPips}
-                  onChange={(e) => handleSlPipsChange(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">POINTS</label>
-                <input
-                  className={inputCls}
-                  type="number"
-                  step="any"
-                  placeholder="Points"
-                  value={slPoints}
-                  onChange={(e) => handleSlPointsChange(e.target.value)}
-                />
+          <>
+            {/* Take Profit (TP) Price, Pips, Points */}
+            <div className="flex flex-col gap-1.5 animate-fade-in">
+              <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
+                Take Profit (TP)
+              </span>
+              <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1 max-sm:gap-2">
+                <div>
+                  <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    step="any"
+                    placeholder="Level"
+                    value={tpPrice}
+                    onChange={(e) => handleTpPriceChange(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PIPS</label>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    step="any"
+                    placeholder="Pips"
+                    value={tpPips}
+                    onChange={(e) => handleTpPipsChange(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">POINTS</label>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    step="any"
+                    placeholder="Points"
+                    value={tpPoints}
+                    onChange={(e) => handleTpPointsChange(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">
-            <Field label="Risk / Reward">
-              <input
-                className={inputCls}
-                type="number"
-                step="any"
-                placeholder="e.g. 2.5"
-                value={riskReward}
-                onChange={(e) => setRiskReward(e.target.value)}
-              />
-            </Field>
-            <Field label="Outcome">
-              <select
-                className={inputCls}
-                value={outcome}
-                onChange={(e) => setOutcome(e.target.value as TradeOutcome)}
-              >
-                <option value="Win">Win (hits TP)</option>
-                <option value="Loss">Loss (hits SL)</option>
-                <option value="Breakeven">Breakeven</option>
-              </select>
-            </Field>
-          </div>
+            {/* Stop Loss (SL) Price, Pips, Points */}
+            <div className="flex flex-col gap-1.5 animate-fade-in">
+              <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
+                Stop Loss (SL)
+              </span>
+              <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1 max-sm:gap-2">
+                <div>
+                  <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    step="any"
+                    placeholder="Level"
+                    value={slPrice}
+                    onChange={(e) => handleSlPriceChange(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PIPS</label>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    step="any"
+                    placeholder="Pips"
+                    value={slPips}
+                    onChange={(e) => handleSlPipsChange(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">POINTS</label>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    step="any"
+                    placeholder="Points"
+                    value={slPoints}
+                    onChange={(e) => handleSlPointsChange(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
 
-          {/* P&L preview */}
-          {previewPnl !== null && (
-            <div
-              className={`flex items-center justify-between px-4 py-3 rounded-xl animate-fade-in border ${previewPnl >= 0
+            <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">
+              <Field label="Risk / Reward">
+                <input
+                  className={inputCls}
+                  type="number"
+                  step="any"
+                  placeholder="e.g. 2.5"
+                  value={riskReward}
+                  onChange={(e) => setRiskReward(e.target.value)}
+                />
+              </Field>
+              <Field label="Outcome">
+                <select
+                  className={inputCls}
+                  value={outcome}
+                  onChange={(e) => setOutcome(e.target.value as TradeOutcome)}
+                >
+                  <option value="Win">Win (hits TP)</option>
+                  <option value="Loss">Loss (hits SL)</option>
+                  <option value="Breakeven">Breakeven</option>
+                </select>
+              </Field>
+              {outcome === 'Breakeven' && (
+                <div>
+                  <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">Breakeven Price</label>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    step="any"
+                    placeholder="Breakeven price"
+                    value={breakevenPrice}
+                    onChange={(e) => setBreakevenPrice(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* P&L preview */}
+            {previewPnl !== null && (
+              <div
+                className={`flex items-center justify-between px-4 py-3 rounded-xl animate-fade-in border ${previewPnl >= 0
                   ? 'bg-emerald-500/10 border-emerald-500/20'
                   : 'bg-rose-500/10 border-rose-500/20'
-                }`}
-            >
-              <span className="text-[0.8rem] font-semibold text-journal-text-secondary">
-                Estimated P&L ({outcome})
-              </span>
-              <span
-                className={`font-mono text-[1.1rem] font-extrabold ${previewPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+                  }`}
               >
-                {previewPnl >= 0 ? '+' : ''}${previewPnl.toFixed(2)}
-              </span>
-            </div>
-          )}
+                <span className="text-[0.8rem] font-semibold text-journal-text-secondary">
+                  Estimated P&L ({outcome})
+                </span>
+                <span
+                  className={`font-mono text-[1.1rem] font-extrabold ${previewPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+                >
+                  {previewPnl >= 0 ? '+' : ''}${previewPnl.toFixed(2)}
+                </span>
+              </div>
+            )}
+          </>
         </div>
 
         {/* Notes */}
@@ -1323,21 +1450,21 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
             Chart Screenshot
           </span>
 
-          {previewUrl ? (
-            <div className="relative rounded-2xl overflow-hidden border border-neutral-200 shadow-sm max-w-full aspect-[16/10] bg-neutral-50 flex items-center justify-center">
-              <img
-                src={previewUrl}
-                alt="Chart preview"
-                className="w-full h-full object-contain"
-              />
-              <button
-                type="button"
-                onClick={handleRemoveImage}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full border-none bg-black/60 text-white cursor-pointer flex items-center justify-center hover:bg-rose-600 transition-colors shadow-sm"
-                title="Remove screenshot"
-              >
-                <X className="w-4 h-4" />
-              </button>
+          {previewUrls && previewUrls.length > 0 ? (
+            <div className={`grid gap-2 ${previewUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {previewUrls.map((url, idx) => (
+                <div key={`${url}-${idx}`} className="relative rounded-2xl overflow-hidden border border-neutral-200 shadow-sm max-w-full aspect-[16/10] bg-neutral-50 flex items-center justify-center">
+                  <img src={url} alt={`Chart preview ${idx + 1}`} className="w-full h-full object-contain" />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full border-none bg-black/60 text-white cursor-pointer flex items-center justify-center hover:bg-rose-600 transition-colors shadow-sm"
+                    title="Remove screenshot"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
             </div>
           ) : (
             <div
@@ -1347,8 +1474,8 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
               onDrop={handleDrop}
               onClick={() => fileRef.current?.click()}
               className={`w-full min-h-[140px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2.5 cursor-pointer p-6 text-center transition-all duration-200 ${dragActive
-                  ? 'border-journal-text bg-journal-bg/50'
-                  : 'border-neutral-300 bg-transparent hover:border-neutral-400 hover:bg-neutral-50/50'
+                ? 'border-journal-text bg-journal-bg/50'
+                : 'border-neutral-300 bg-transparent hover:border-neutral-400 hover:bg-neutral-50/50'
                 }`}
             >
               <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center">
@@ -1368,6 +1495,7 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
             ref={fileRef}
             type="file"
             accept="image/*"
+            multiple
             hidden
             onChange={handleFileChange}
           />

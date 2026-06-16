@@ -170,16 +170,17 @@ export function useTrades(profileId: string | null) {
           pair: t.pair,
           direction: t.direction as 'Long' | 'Short',
           entryPrice: Number(t.entry_price),
-          exitPrice: Number(t.exit_price),
+          exitPrice: t.exit_price !== null && t.exit_price !== undefined ? Number(t.exit_price) : undefined,
           positionSize: Number(t.position_size),
           profitLevel: t.profit_level ? Number(t.profit_level) : undefined,
           stopLevel: t.stop_level ? Number(t.stop_level) : undefined,
-          pnl: Number(t.pnl),
+          pnl: t.pnl !== null && t.pnl !== undefined ? Number(t.pnl) : undefined,
           outcome: t.outcome as 'Win' | 'Loss' | 'Breakeven',
           riskReward: Number(t.risk_reward),
           notes: t.notes || '',
           images: t.images || [],
           image_url: t.image_url || '',
+          status: (t.status as 'OPEN' | 'CLOSED') || 'CLOSED',
           createdAt: t.created_at,
         }))
       );
@@ -211,19 +212,23 @@ export function useTrades(profileId: string | null) {
   }, [profileId, fetchTrades]);
 
   const addTrade = useCallback(
-    async (tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'>) => {
+    async (tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'> & { status?: 'OPEN' | 'CLOSED' }) => {
       if (!profileId) return;
-      const { direction, entryPrice, exitPrice, positionSize } = tradeInput;
-      const rawPnl = direction === 'Long'
-        ? (exitPrice - entryPrice) * positionSize
-        : (entryPrice - exitPrice) * positionSize;
-      const pnl = Number(rawPnl.toFixed(2));
+      const { direction, entryPrice, exitPrice, positionSize, status } = tradeInput;
 
+      // If creating an OPEN trade, do not compute pnl or outcome and store nulls
+      let pnl: number | null = null;
       let outcome: 'Win' | 'Loss' | 'Breakeven' = 'Breakeven';
-      if (pnl > 0.005) {
-        outcome = 'Win';
-      } else if (pnl < -0.005) {
-        outcome = 'Loss';
+
+      if (status !== 'OPEN' && exitPrice !== undefined && exitPrice !== null) {
+        const rawPnl = direction === 'Long'
+          ? (exitPrice - entryPrice) * positionSize
+          : (entryPrice - exitPrice) * positionSize;
+        pnl = Number(rawPnl.toFixed(2));
+
+        if (pnl > 0.005) outcome = 'Win';
+        else if (pnl < -0.005) outcome = 'Loss';
+        else outcome = 'Breakeven';
       }
 
       const { error } = await supabase
@@ -234,16 +239,17 @@ export function useTrades(profileId: string | null) {
             pair: tradeInput.pair,
             direction,
             entry_price: entryPrice,
-            exit_price: exitPrice,
+            exit_price: status === 'OPEN' ? null : exitPrice,
             position_size: positionSize,
-            profit_level: tradeInput.profitLevel,
-            stop_level: tradeInput.stopLevel,
-            pnl,
-            outcome,
+            profit_level: tradeInput.profitLevel ?? null,
+            stop_level: tradeInput.stopLevel ?? null,
+            pnl: pnl,
+            outcome: status === 'OPEN' ? null : outcome,
             risk_reward: tradeInput.riskReward,
             notes: tradeInput.notes,
             images: tradeInput.images,
             image_url: tradeInput.image_url,
+            status: status ?? 'CLOSED',
             created_at: tradeInput.createdAt,
           },
         ]);
@@ -257,18 +263,21 @@ export function useTrades(profileId: string | null) {
   );
 
   const updateTrade = useCallback(
-    async (id: string, tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'>) => {
-      const { direction, entryPrice, exitPrice, positionSize } = tradeInput;
-      const rawPnl = direction === 'Long'
-        ? (exitPrice - entryPrice) * positionSize
-        : (entryPrice - exitPrice) * positionSize;
-      const pnl = Number(rawPnl.toFixed(2));
+    async (id: string, tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'> & { status?: 'OPEN' | 'CLOSED' }) => {
+      const { direction, entryPrice, exitPrice, positionSize, status } = tradeInput;
 
-      let outcome: 'Win' | 'Loss' | 'Breakeven' = 'Breakeven';
-      if (pnl > 0.005) {
-        outcome = 'Win';
-      } else if (pnl < -0.005) {
-        outcome = 'Loss';
+      let pnl: number | null = null;
+      let outcome: 'Win' | 'Loss' | 'Breakeven' | null = null;
+
+      if (status !== 'OPEN' && exitPrice !== undefined && exitPrice !== null) {
+        const rawPnl = direction === 'Long'
+          ? (exitPrice - entryPrice) * positionSize
+          : (entryPrice - exitPrice) * positionSize;
+        pnl = Number(rawPnl.toFixed(2));
+
+        if (pnl > 0.005) outcome = 'Win';
+        else if (pnl < -0.005) outcome = 'Loss';
+        else outcome = 'Breakeven';
       }
 
       const { error } = await supabase
@@ -277,16 +286,17 @@ export function useTrades(profileId: string | null) {
           pair: tradeInput.pair,
           direction,
           entry_price: entryPrice,
-          exit_price: exitPrice,
+          exit_price: status === 'OPEN' ? null : exitPrice,
           position_size: positionSize,
-          profit_level: tradeInput.profitLevel,
-          stop_level: tradeInput.stopLevel,
-          pnl,
-          outcome,
+          profit_level: tradeInput.profitLevel ?? null,
+          stop_level: tradeInput.stopLevel ?? null,
+          pnl: pnl,
+          outcome: outcome,
           risk_reward: tradeInput.riskReward,
           notes: tradeInput.notes,
           images: tradeInput.images,
           image_url: tradeInput.image_url,
+          status: status ?? 'CLOSED',
           created_at: tradeInput.createdAt,
         })
         .eq('id', id);
@@ -305,10 +315,11 @@ export function useTrades(profileId: string | null) {
 
       const payload = rows.map((tradeInput) => {
         const { direction, entryPrice, exitPrice, positionSize } = tradeInput;
+        const exitVal = exitPrice ?? entryPrice;
         const rawPnl =
           direction === 'Long'
-            ? (exitPrice - entryPrice) * positionSize
-            : (entryPrice - exitPrice) * positionSize;
+            ? (exitVal - entryPrice) * positionSize
+            : (entryPrice - exitVal) * positionSize;
         const pnl = Number(rawPnl.toFixed(2));
 
         let outcome: 'Win' | 'Loss' | 'Breakeven' = 'Breakeven';

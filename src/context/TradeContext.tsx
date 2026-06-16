@@ -22,10 +22,9 @@ function generateId(): string {
 function calculatePnl(
   trade: Pick<Trade, 'direction' | 'entryPrice' | 'exitPrice' | 'positionSize'>
 ): number {
+  const exit = trade.exitPrice !== undefined && trade.exitPrice !== null ? trade.exitPrice : trade.entryPrice;
   const diff =
-    trade.direction === 'Long'
-      ? trade.exitPrice - trade.entryPrice
-      : trade.entryPrice - trade.exitPrice;
+    trade.direction === 'Long' ? exit - trade.entryPrice : trade.entryPrice - exit;
   return diff * trade.positionSize;
 }
 
@@ -52,7 +51,7 @@ function buildDailyLogs(trades: Trade[]): Map<string, DailyLog> {
     }
     const log = map.get(dateKey)!;
     log.trades.push(trade);
-    log.totalPnl += trade.pnl;
+    log.totalPnl += trade.pnl ?? 0;
     if (trade.outcome === 'Win') log.winCount++;
     else if (trade.outcome === 'Loss') log.lossCount++;
     else log.breakevenCount++;
@@ -68,7 +67,7 @@ function buildMetrics(
   const total = trades.length;
   const wins = trades.filter((t) => t.outcome === 'Win').length;
   const winRate = total > 0 ? (wins / total) * 100 : 0;
-  const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
+  const totalPnl = trades.reduce((s, t) => s + (t.pnl ?? 0), 0);
   const avgRR =
     total > 0 ? trades.reduce((s, t) => s + t.riskReward, 0) / total : 0;
 

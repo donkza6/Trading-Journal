@@ -7,6 +7,7 @@ import CalendarGrid from '@/components/CalendarGrid';
 import TradeModal from '@/components/TradeModal';
 import DashboardSummary from '@/components/DashboardSummary';
 import DataManagement from '@/components/DataManagement';
+import ActivePositions from '@/components/ActivePositions';
 import {
   Users,
   ChevronLeft,
@@ -40,6 +41,7 @@ export default function JournalPage() {
   const [year, setYear] = useState(today.getFullYear());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [modalTrade, setModalTrade] = useState<any | null>(null);
 
   const goPrev = () => {
     if (month === 0) {
@@ -78,9 +80,17 @@ export default function JournalPage() {
     setSelectedDate(date);
     setShowModal(true);
   };
+  const handleRequestClose = (trade: any) => {
+    // Open modal for the trade's created date and pass the trade for editing/closing
+    const d = trade.createdAt ? trade.createdAt.split('T')[0] : new Date().toISOString().split('T')[0];
+    setSelectedDate(d);
+    setModalTrade(trade);
+    setShowModal(true);
+  };
   const closeModal = () => {
     setShowModal(false);
     setSelectedDate(null);
+    setModalTrade(null);
   };
 
   const activeAvatar = useMemo(() => {
@@ -153,6 +163,8 @@ export default function JournalPage() {
       <main className="flex flex-col gap-6">
         <DashboardSummary trades={trades} />
 
+        <ActivePositions onRequestClose={handleRequestClose} />
+
         {/* ═══ Calendar Section ═══ */}
         <section className="animate-fade-in" style={{ animationDelay: '200ms' }}>
           <div className="flex items-center justify-between mb-4 max-sm:flex-col max-sm:items-start max-sm:gap-2">
@@ -204,7 +216,7 @@ export default function JournalPage() {
       </main>
 
       {showModal && selectedDate && (
-        <TradeModal date={selectedDate} onClose={closeModal} />
+        <TradeModal date={selectedDate} onClose={closeModal} initialTrade={modalTrade} />
       )}
     </div>
   );

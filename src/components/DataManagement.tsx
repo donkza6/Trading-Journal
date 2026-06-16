@@ -85,6 +85,7 @@ function parseCsvRow(
     notes,
     images: [],
     image_url: '',
+    status: 'CLOSED',
     createdAt,
   };
 }
@@ -204,11 +205,10 @@ export default function DataManagement() {
 
       {toast && (
         <div
-          className={`absolute top-full right-0 mt-2 z-50 flex items-center gap-2 px-3.5 py-2.5 rounded-xl border shadow-md text-[0.78rem] font-semibold whitespace-nowrap animate-slide-down ${
-            toast.type === 'success'
+          className={`absolute top-full right-0 mt-2 z-50 flex items-center gap-2 px-3.5 py-2.5 rounded-xl border shadow-md text-[0.78rem] font-semibold whitespace-nowrap animate-slide-down ${toast.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
               : 'bg-rose-50 border-rose-200 text-rose-800'
-          }`}
+            }`}
         >
           {toast.type === 'success' ? (
             <CheckCircle2 className="w-4 h-4 shrink-0" />

@@ -30,12 +30,13 @@ export default function EquityCurveChart({ trades }: EquityCurveChartProps) {
 
     let cumPnl = 0;
     const points: ChartPoint[] = sorted.map((trade, index) => {
-      cumPnl += trade.pnl;
+      const pnl = trade.pnl ?? 0;
+      cumPnl += pnl;
       return {
         label: `#${index + 1}`,
         date: trade.createdAt.slice(0, 10),
         cumPnl: Number(cumPnl.toFixed(2)),
-        pnl: trade.pnl,
+        pnl: pnl,
       };
     });
 

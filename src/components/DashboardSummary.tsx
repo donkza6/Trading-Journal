@@ -61,8 +61,8 @@ export default function DashboardSummary({ trades }: DashboardSummaryProps) {
 
     const winningTrades = filteredTrades.filter((t) => t.outcome === 'Win');
     const losingTrades = filteredTrades.filter((t) => t.outcome === 'Loss');
-    const avgWin = winningTrades.length > 0 ? winningTrades.reduce((s, t) => s + t.pnl, 0) / winningTrades.length : 0;
-    const avgLoss = losingTrades.length > 0 ? losingTrades.reduce((s, t) => s + t.pnl, 0) / losingTrades.length : 0;
+    const avgWin = winningTrades.length > 0 ? winningTrades.reduce((s, t) => s + (t.pnl ?? 0), 0) / winningTrades.length : 0;
+    const avgLoss = losingTrades.length > 0 ? losingTrades.reduce((s, t) => s + (t.pnl ?? 0), 0) / losingTrades.length : 0;
 
     // Longest losing streak (consecutive losing trades)
     const sortedByTime = [...filteredTrades].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());

@@ -16,11 +16,11 @@ export interface Trade {
   pair: string;
   direction: TradeDirection;
   entryPrice: number;
-  exitPrice: number;
+  exitPrice?: number | null;
   positionSize: number;
   profitLevel?: number;
   stopLevel?: number;
-  pnl: number;
+  pnl?: number | null;
   outcome: TradeOutcome;
   riskReward: number;
   notes: string;
@@ -28,6 +28,7 @@ export interface Trade {
   images?: string[];  // Retain string array compatibility
   setup_grade?: string | null; // 'A' | 'B' | 'C' optionally stored from pre-trade checklist
   news_event?: string | null; // Optional macro/news event tag
+  status: 'OPEN' | 'CLOSED';
   createdAt: string;
 }
 
