@@ -34,3 +34,7 @@ create table trades (
 
 -- Enable real-time listening for these tables
 alter publication supabase_realtime add table profiles, trades;
+
+-- Disable Row Level Security (RLS) to allow read/write access in this sandbox app
+alter table profiles disable row level security;
+alter table trades disable row level security;

@@ -136,7 +136,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('[Supabase] Error fetching profiles:', error);
+      console.error('[Supabase] Error fetching profiles:', error.message, error.details, error.hint);
     } else if (data) {
       setProfiles(
         data.map((p) => ({
@@ -191,7 +191,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       .insert([{ name, avatar_url: avatarUrl }]);
 
     if (error) {
-      console.error('[Supabase] Error creating profile:', error);
+      console.error('[Supabase] Error creating profile:', error.message, error.details, error.hint);
       throw error;
     }
   }, []);
@@ -244,7 +244,7 @@ export function useTrades(profileId: string | null) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('[Supabase] Error fetching trades:', error);
+      console.error('[Supabase] Error fetching trades:', error.message, error.details, error.hint);
     } else if (data) {
       setTrades(
         data.map((t) => ({
@@ -330,7 +330,7 @@ export function useTrades(profileId: string | null) {
         ]);
 
       if (error) {
-        console.error('[Supabase] Error saving trade:', error);
+        console.error('[Supabase] Error saving trade:', error.message, error.details, error.hint);
         throw error;
       }
     },
@@ -372,7 +372,7 @@ export function useTrades(profileId: string | null) {
         .eq('id', id);
 
       if (error) {
-        console.error('[Supabase] Error updating trade:', error);
+        console.error('[Supabase] Error updating trade:', error.message, error.details, error.hint);
         throw error;
       }
     },
@@ -386,7 +386,7 @@ export function useTrades(profileId: string | null) {
       .eq('id', id);
 
     if (error) {
-      console.error('[Supabase] Error deleting trade:', error);
+      console.error('[Supabase] Error deleting trade:', error.message, error.details, error.hint);
       throw error;
     }
   }, []);
