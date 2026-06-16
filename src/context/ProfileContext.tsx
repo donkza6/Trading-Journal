@@ -158,6 +158,12 @@ class RealtimeDatabase {
     return newTrade;
   }
 
+  public updateTrade(id: string, updatedFields: Omit<Trade, 'id' | 'profileId'>) {
+    this.trades = this.trades.map((t) => t.id === id ? { ...t, ...updatedFields } : t);
+    this.saveTrades();
+    this.notify();
+  }
+
   public deleteTrade(id: string) {
     this.trades = this.trades.filter((t) => t.id !== id);
     this.saveTrades();
@@ -386,6 +392,30 @@ export function useTrades(profileId: string | null) {
     [profileId]
   );
 
+  const updateTrade = useCallback(
+    (id: string, tradeInput: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'>) => {
+      const { direction, entryPrice, exitPrice, positionSize } = tradeInput;
+      const rawPnl = direction === 'Long'
+        ? (exitPrice - entryPrice) * positionSize
+        : (entryPrice - exitPrice) * positionSize;
+      const pnl = Number(rawPnl.toFixed(2));
+
+      let outcome: 'Win' | 'Loss' | 'Breakeven' = 'Breakeven';
+      if (pnl > 0.005) {
+        outcome = 'Win';
+      } else if (pnl < -0.005) {
+        outcome = 'Loss';
+      }
+
+      db.updateTrade(id, {
+        ...tradeInput,
+        pnl,
+        outcome,
+      });
+    },
+    []
+  );
+
   const deleteTrade = useCallback((id: string) => {
     db.deleteTrade(id);
   }, []);
@@ -404,6 +434,7 @@ export function useTrades(profileId: string | null) {
     metrics,
     dailyLogs,
     addTrade,
+    updateTrade,
     deleteTrade,
     getDayLog,
   };

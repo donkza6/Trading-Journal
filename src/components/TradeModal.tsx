@@ -8,7 +8,7 @@ import React, {
   type FormEvent,
 } from 'react';
 import { useProfiles, useTrades } from '@/context/ProfileContext';
-import type { TradeDirection, TradeOutcome } from '@/types';
+import type { TradeDirection, TradeOutcome, Trade } from '@/types';
 
 /* ═══════════════════════════════════════════
    TradeModal – Day detail view + trade form
@@ -23,6 +23,7 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
   const { activeProfileId } = useProfiles();
   const { getDayLog, deleteTrade } = useTrades(activeProfileId);
   const [showForm, setShowForm] = useState(false);
+  const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -34,11 +35,12 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (expandedImage) setExpandedImage(null);
+        else if (editingTrade) setEditingTrade(null);
         else if (showForm) setShowForm(false);
         else onClose();
       }
     },
-    [onClose, showForm, expandedImage]
+    [onClose, showForm, editingTrade, expandedImage]
   );
 
   useEffect(() => {
@@ -97,8 +99,15 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
 
         {/* ── Body ── */}
         <div className="p-6 overflow-y-auto flex-1 max-sm:p-4">
-          {showForm ? (
-            <TradeForm date={date} onClose={() => setShowForm(false)} />
+          {showForm || editingTrade ? (
+            <TradeForm
+              date={date}
+              onClose={() => {
+                setShowForm(false);
+                setEditingTrade(null);
+              }}
+              editingTrade={editingTrade}
+            />
           ) : (
             <>
               {/* Trade list */}
@@ -190,34 +199,44 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                         </div>
                       )}
 
-                      {/* Delete */}
-                      {deleteConfirmId === trade.id ? (
-                        <div className="self-end flex items-center gap-2 animate-fade-in">
-                          <span className="text-[0.7rem] font-bold text-loss">Delete this trade?</span>
+                      {/* Actions (Edit & Delete) */}
+                      <div className="self-end flex items-center gap-3">
+                        {!deleteConfirmId && (
                           <button
-                            className="text-[0.72rem] font-bold text-loss bg-loss-bg px-2.5 py-1 rounded-md cursor-pointer hover:bg-loss/20 transition-colors"
-                            onClick={() => {
-                              deleteTrade(trade.id);
-                              setDeleteConfirmId(null);
-                            }}
+                            className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-journal-text hover:bg-border-light transition-colors"
+                            onClick={() => setEditingTrade(trade)}
                           >
-                            Yes
+                            ✏️ Edit
                           </button>
+                        )}
+                        {deleteConfirmId === trade.id ? (
+                          <div className="flex items-center gap-2 animate-fade-in">
+                            <span className="text-[0.7rem] font-bold text-loss">Delete this trade?</span>
+                            <button
+                              className="text-[0.72rem] font-bold text-loss bg-loss-bg px-2.5 py-1 rounded-md cursor-pointer hover:bg-loss/20 transition-colors"
+                              onClick={() => {
+                                deleteTrade(trade.id);
+                                setDeleteConfirmId(null);
+                              }}
+                            >
+                              Yes
+                            </button>
+                            <button
+                              className="text-[0.72rem] font-semibold text-journal-text-secondary bg-journal-bg px-2.5 py-1 rounded-md cursor-pointer hover:bg-border-light transition-colors"
+                              onClick={() => setDeleteConfirmId(null)}
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            className="text-[0.72rem] font-semibold text-journal-text-secondary bg-journal-bg px-2.5 py-1 rounded-md cursor-pointer hover:bg-border-light transition-colors"
-                            onClick={() => setDeleteConfirmId(null)}
+                            className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-loss hover:bg-loss-bg transition-colors"
+                            onClick={() => setDeleteConfirmId(trade.id)}
                           >
-                            No
+                            🗑️ Delete
                           </button>
-                        </div>
-                      ) : (
-                        <button
-                          className="self-end text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-loss hover:bg-loss-bg transition-colors"
-                          onClick={() => setDeleteConfirmId(trade.id)}
-                        >
-                          🗑️ Delete
-                        </button>
-                      )}
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -279,27 +298,28 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
 interface TradeFormProps {
   date: string;
   onClose: () => void;
+  editingTrade?: Trade | null;
 }
 
-function TradeForm({ date, onClose }: TradeFormProps) {
+function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
   const { activeProfileId } = useProfiles();
-  const { addTrade } = useTrades(activeProfileId);
+  const { addTrade, updateTrade } = useTrades(activeProfileId);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [pair, setPair] = useState('');
-  const [direction, setDirection] = useState<TradeDirection>('Long');
-  const [entryPrice, setEntryPrice] = useState('');
-  const [tpPrice, setTpPrice] = useState('');
+  const [pair, setPair] = useState(editingTrade?.pair ?? '');
+  const [direction, setDirection] = useState<TradeDirection>(editingTrade?.direction ?? 'Long');
+  const [entryPrice, setEntryPrice] = useState(editingTrade?.entryPrice ? editingTrade.entryPrice.toString() : '');
+  const [tpPrice, setTpPrice] = useState(editingTrade?.profitLevel ? editingTrade.profitLevel.toString() : '');
   const [tpPips, setTpPips] = useState('');
   const [tpPoints, setTpPoints] = useState('');
-  const [slPrice, setSlPrice] = useState('');
+  const [slPrice, setSlPrice] = useState(editingTrade?.stopLevel ? editingTrade.stopLevel.toString() : '');
   const [slPips, setSlPips] = useState('');
   const [slPoints, setSlPoints] = useState('');
-  const [positionSize, setPositionSize] = useState('');
-  const [riskReward, setRiskReward] = useState('');
-  const [outcome, setOutcome] = useState<TradeOutcome>('Win');
-  const [notes, setNotes] = useState('');
-  const [images, setImages] = useState<string[]>([]);
+  const [positionSize, setPositionSize] = useState(editingTrade?.positionSize ? editingTrade.positionSize.toString() : '');
+  const [riskReward, setRiskReward] = useState(editingTrade?.riskReward ? editingTrade.riskReward.toString() : '');
+  const [outcome, setOutcome] = useState<TradeOutcome>(editingTrade?.outcome ?? 'Win');
+  const [notes, setNotes] = useState(editingTrade?.notes ?? '');
+  const [images, setImages] = useState<string[]>(editingTrade?.images ?? []);
   const [saving, setSaving] = useState(false);
 
   const handleImages = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -325,6 +345,32 @@ function TradeForm({ date, onClose }: TradeFormProps) {
     if (entry < 500) return 0.01;   // JPY or stocks
     return 1.0;                    // Crypto, Gold, Indices
   }, []);
+
+  // Initialize TP/SL pips/points if editing
+  useEffect(() => {
+    if (editingTrade && editingTrade.entryPrice > 0) {
+      const entry = editingTrade.entryPrice;
+      const pipSize = getPipSize(entry);
+
+      if (editingTrade.profitLevel) {
+        const diff = editingTrade.direction === 'Long'
+          ? editingTrade.profitLevel - entry
+          : entry - editingTrade.profitLevel;
+        const pips = diff / pipSize;
+        setTpPips(Number(pips.toFixed(2)).toString());
+        setTpPoints(Number((pips * 10).toFixed(1)).toString());
+      }
+
+      if (editingTrade.stopLevel) {
+        const diff = editingTrade.direction === 'Long'
+          ? entry - editingTrade.stopLevel
+          : editingTrade.stopLevel - entry;
+        const pips = diff / pipSize;
+        setSlPips(Number(pips.toFixed(2)).toString());
+        setSlPoints(Number((pips * 10).toFixed(1)).toString());
+      }
+    }
+  }, [editingTrade, getPipSize]);
 
   const handleEntryChange = (val: string) => {
     setEntryPrice(val);
@@ -524,7 +570,7 @@ function TradeForm({ date, onClose }: TradeFormProps) {
       computedExitPrice = entryNum;
     }
 
-    addTrade({
+    const tradeData = {
       pair: pair.toUpperCase(),
       direction,
       entryPrice: entryNum,
@@ -536,7 +582,13 @@ function TradeForm({ date, onClose }: TradeFormProps) {
       notes,
       images,
       createdAt: date + 'T12:00:00',
-    });
+    };
+
+    if (editingTrade) {
+      updateTrade(editingTrade.id, tradeData);
+    } else {
+      addTrade(tradeData);
+    }
 
     setTimeout(() => {
       setSaving(false);
@@ -558,7 +610,9 @@ function TradeForm({ date, onClose }: TradeFormProps) {
     <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-[1.15rem] font-extrabold">Add New Trade</h3>
+        <h3 className="text-[1.15rem] font-extrabold">
+          {editingTrade ? 'Edit Trade' : 'Add New Trade'}
+        </h3>
         <span className="text-[0.82rem] font-semibold text-journal-text-muted bg-journal-bg px-3 py-1 rounded-full">
           {dateLabel}
         </span>
@@ -633,7 +687,7 @@ function TradeForm({ date, onClose }: TradeFormProps) {
           <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
             Take Profit (TP)
           </span>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1 max-sm:gap-2">
             <div>
               <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
               <input
@@ -675,7 +729,7 @@ function TradeForm({ date, onClose }: TradeFormProps) {
           <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
             Stop Loss (SL)
           </span>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1 max-sm:gap-2">
             <div>
               <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
               <input
