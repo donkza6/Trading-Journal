@@ -236,6 +236,16 @@ export default function TradeModal({ date, onClose, initialTrade = null, initial
                               <span className="font-bold text-[0.95rem] font-mono">
                                 {trade.pair}
                               </span>
+                              {trade.session && trade.session !== 'None' && (
+                                <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded-md text-[0.65rem] font-bold tracking-wider uppercase ml-1">
+                                  {trade.session}
+                                </span>
+                              )}
+                              {trade.entryTime && (
+                                <span className="text-[0.7rem] text-journal-text-muted font-semibold ml-1">
+                                  {trade.entryTime} {trade.exitTime ? `- ${trade.exitTime}` : ''}
+                                </span>
+                              )}
                             </div>
                             <span
                               className={`font-mono font-extrabold text-base ${trade.pnl !== undefined && trade.pnl !== null && trade.pnl >= 0 ? 'text-emerald-600' : (trade.pnl !== undefined && trade.pnl !== null ? 'text-rose-600' : 'text-journal-text-muted')}`}
@@ -712,6 +722,9 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
   const [closePnl, setClosePnl] = useState('');
   const [breakevenPrice, setBreakevenPrice] = useState<string>(editingTrade?.exitPrice ? String(editingTrade.exitPrice) : '');
   const [mode, setMode] = useState<'PLAN' | 'OPEN' | 'CLOSED'>(editingTrade?.status ?? initialMode ?? 'PLAN');
+  const [entryTime, setEntryTime] = useState(editingTrade?.entryTime ?? '');
+  const [exitTime, setExitTime] = useState(editingTrade?.exitTime ?? '');
+  const [session, setSession] = useState<'Asian' | 'London' | 'New York' | 'Overlap' | 'None'>(editingTrade?.session ?? 'None');
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -746,12 +759,15 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
   };
 
   const handleRemoveImage = (index: number) => {
-    setPreviewUrls((prev) => {
-      const url = prev[index];
-      try { if (url && url.startsWith('blob:')) URL.revokeObjectURL(url); } catch (e) { }
-      return prev.filter((_, i) => i !== index);
+    setPreviewUrls((prevUrls) => {
+      const urlToRemove = prevUrls[index];
+      if (urlToRemove && urlToRemove.startsWith('blob:')) {
+        const blobIndex = prevUrls.filter(u => u.startsWith('blob:')).indexOf(urlToRemove);
+        setSelectedFiles((prevFiles) => prevFiles.filter((_, i) => i !== blobIndex));
+        try { URL.revokeObjectURL(urlToRemove); } catch (e) { }
+      }
+      return prevUrls.filter((_, i) => i !== index);
     });
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Recent pairs autosuggest (persist up to 20)
@@ -1046,11 +1062,9 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
         }
       }
 
-      // Combine existing images (if editing) with newly uploaded ones
-      const existing = editingTrade
-        ? ([editingTrade.image_url, ...(editingTrade.images ?? [])].filter((x): x is string => Boolean(x)))
-        : (previewUrls.filter(Boolean) as string[]);
-      const finalList = ([...existing, ...uploadedUrls].filter(Boolean) as string[]);
+      // Combine existing images (that weren't deleted) with newly uploaded ones
+      const existingUrls = previewUrls.filter(url => url && !url.startsWith('blob:'));
+      const finalList = [...existingUrls, ...uploadedUrls].filter(Boolean) as string[];
       const finalImageUrl = finalList[0] || '';
 
 
@@ -1104,6 +1118,9 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
         image_url: finalImageUrl,
         setup_grade: setupGrade,
         news_event: newsEvent,
+        entryTime: entryTime || undefined,
+        exitTime: exitTime || undefined,
+        session: session,
         createdAt: date + 'T12:00:00',
         status,
       };
@@ -1239,6 +1256,46 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
                 <option key={p} value={p} />
               ))}
             </datalist>
+          </Field>
+
+          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+            <Field label="Entry Time">
+              <input
+                className={inputCls}
+                type="time"
+                value={entryTime}
+                onChange={(e) => setEntryTime(e.target.value)}
+              />
+            </Field>
+            {mode === 'CLOSED' && (
+              <Field label="Exit Time">
+                <input
+                  className={inputCls}
+                  type="time"
+                  value={exitTime}
+                  onChange={(e) => setExitTime(e.target.value)}
+                />
+              </Field>
+            )}
+          </div>
+
+          <Field label="Trading Session">
+            <div className="flex flex-wrap items-center gap-2">
+              {['Asian', 'London', 'New York', 'Overlap', 'None'].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSession(s as any)}
+                  className={`px-3 py-1.5 rounded-md text-[0.8rem] font-bold border transition-all ${
+                    session === s
+                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
+                      : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </Field>
 
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">

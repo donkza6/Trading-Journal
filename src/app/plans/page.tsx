@@ -136,6 +136,11 @@ export default function PlansPage() {
                                                                              {p.direction === 'Long' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
                                                                       </div>
                                                                       <span className="text-gray-900 font-bold text-base">{p.pair}</span>
+                                                                      {p.session && p.session !== 'None' && (
+                                                                             <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[10px] font-bold tracking-wider uppercase ml-1">
+                                                                                    {p.session}
+                                                                             </span>
+                                                                      )}
                                                                </div>
                                                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.direction === 'Long' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                                                                       {p.direction}
@@ -148,7 +153,10 @@ export default function PlansPage() {
                                                                       <span className="text-gray-500 text-xs uppercase font-semibold tracking-wide flex items-center gap-1">
                                                                              <Target className="w-3 h-3" /> Entry
                                                                       </span>
-                                                                      <span className="text-gray-900 font-medium text-sm">{p.entryPrice ? `$${p.entryPrice}` : '—'}</span>
+                                                                      <span className="text-gray-900 font-medium text-sm">
+                                                                             {p.entryPrice ? `$${p.entryPrice}` : '—'}
+                                                                             {p.entryTime && <span className="block text-[10px] text-gray-400 font-medium mt-0.5">@ {p.entryTime}</span>}
+                                                                      </span>
                                                                </div>
                                                                <div className="flex flex-col gap-0.5">
                                                                       <span className="text-gray-500 text-xs uppercase font-semibold tracking-wide flex items-center gap-1">

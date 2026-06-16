@@ -180,6 +180,9 @@ export function useTrades(profileId: string | null) {
           notes: t.notes || '',
           images: t.images || [],
           image_url: t.image_url || '',
+          entryTime: t.entry_time || undefined,
+          exitTime: t.exit_time || undefined,
+          session: t.session || undefined,
           status: (t.status as 'OPEN' | 'CLOSED' | 'PLAN') || 'CLOSED',
           createdAt: t.created_at,
         }))
@@ -249,6 +252,9 @@ export function useTrades(profileId: string | null) {
             notes: tradeInput.notes,
             images: tradeInput.images ?? [],
             image_url: tradeInput.image_url ?? '',
+            entry_time: tradeInput.entryTime ?? null,
+            exit_time: tradeInput.exitTime ?? null,
+            session: tradeInput.session ?? null,
             status: status ?? 'CLOSED',
             created_at: tradeInput.createdAt,
           },
@@ -296,6 +302,9 @@ export function useTrades(profileId: string | null) {
           notes: tradeInput.notes,
           images: tradeInput.images ?? [],
           image_url: tradeInput.image_url ?? '',
+          entry_time: tradeInput.entryTime ?? null,
+          exit_time: tradeInput.exitTime ?? null,
+          session: tradeInput.session ?? null,
           status: status ?? 'CLOSED',
           created_at: tradeInput.createdAt,
         })
@@ -341,6 +350,9 @@ export function useTrades(profileId: string | null) {
           notes: tradeInput.notes || '',
           images: tradeInput.images || [],
           image_url: tradeInput.image_url || '',
+          entry_time: tradeInput.entryTime ?? null,
+          exit_time: tradeInput.exitTime ?? null,
+          session: tradeInput.session ?? null,
           created_at: tradeInput.createdAt,
         };
       });

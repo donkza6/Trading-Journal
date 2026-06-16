@@ -28,6 +28,9 @@ export interface Trade {
   images?: string[];  // Retain string array compatibility
   setup_grade?: string | null; // 'A' | 'B' | 'C' optionally stored from pre-trade checklist
   news_event?: string | null; // Optional macro/news event tag
+  entryTime?: string;
+  exitTime?: string;
+  session?: 'Asian' | 'London' | 'New York' | 'Overlap' | 'None';
   status: 'OPEN' | 'CLOSED' | 'PLAN';
   createdAt: string;
 }
