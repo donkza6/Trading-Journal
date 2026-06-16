@@ -9,8 +9,9 @@ import React, {
   useMemo,
   type ReactNode,
 } from 'react';
-import type { Profile, Trade, DailyLog, PortfolioMetrics } from '@/types';
+import type { Profile, Trade } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { buildDailyLogs, buildMetrics } from '@/lib/metrics';
 
 /* ═══════════════════════════════════════════
    Predefined Sleek Avatars
@@ -23,90 +24,6 @@ export const AVATARS = [
   { id: 'avatar-orange', name: 'Amber', initials: 'AB', bg: '#fef3c7', color: '#d97706' },
   { id: 'avatar-dark', name: 'Obsidian', initials: 'OB', bg: '#f3f4f6', color: '#1f2937' },
 ] as const;
-
-/* ═══════════════════════════════════════════
-   Helper Metrics calculations
-   ═══════════════════════════════════════════ */
-
-function buildDailyLogs(trades: Trade[]): Map<string, DailyLog> {
-  const map = new Map<string, DailyLog>();
-
-  for (const trade of trades) {
-    const dateKey = trade.createdAt.slice(0, 10);
-    if (!map.has(dateKey)) {
-      map.set(dateKey, {
-        date: dateKey,
-        trades: [],
-        totalPnl: 0,
-        winCount: 0,
-        lossCount: 0,
-        breakevenCount: 0,
-      });
-    }
-    const log = map.get(dateKey)!;
-    log.trades.push(trade);
-    log.totalPnl += trade.pnl;
-    if (trade.outcome === 'Win') log.winCount++;
-    else if (trade.outcome === 'Loss') log.lossCount++;
-    else log.breakevenCount++;
-  }
-
-  return map;
-}
-
-function buildMetrics(
-  trades: Trade[],
-  dailyLogs: Map<string, DailyLog>
-): PortfolioMetrics {
-  const total = trades.length;
-  const wins = trades.filter((t) => t.outcome === 'Win').length;
-  const winRate = total > 0 ? (wins / total) * 100 : 0;
-  const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
-  const avgRR =
-    total > 0 ? trades.reduce((s, t) => s + t.riskReward, 0) / total : 0;
-
-  let bestDay: PortfolioMetrics['bestDay'] = null;
-  let worstDay: PortfolioMetrics['worstDay'] = null;
-  for (const [, log] of dailyLogs) {
-    if (!bestDay || log.totalPnl > bestDay.pnl)
-      bestDay = { date: log.date, pnl: log.totalPnl };
-    if (!worstDay || log.totalPnl < worstDay.pnl)
-      worstDay = { date: log.date, pnl: log.totalPnl };
-  }
-
-  const sortedDates = Array.from(dailyLogs.keys()).sort();
-  let cumPnl = 0;
-  const equityCurve = sortedDates.map((date) => {
-    cumPnl += dailyLogs.get(date)!.totalPnl;
-    return { date, cumPnl };
-  });
-
-  let streak: PortfolioMetrics['currentStreak'] = { type: 'None', count: 0 };
-  const sorted = [...trades].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-  if (sorted.length > 0) {
-    const first = sorted[0].outcome;
-    if (first === 'Win' || first === 'Loss') {
-      streak = { type: first, count: 0 };
-      for (const t of sorted) {
-        if (t.outcome === first) streak.count++;
-        else break;
-      }
-    }
-  }
-
-  return {
-    totalTrades: total,
-    winRate,
-    totalPnl,
-    avgRiskReward: avgRR,
-    bestDay,
-    worstDay,
-    currentStreak: streak,
-    equityCurve,
-  };
-}
 
 /* ═══════════════════════════════════════════
    Context Definition
@@ -382,6 +299,51 @@ export function useTrades(profileId: string | null) {
     []
   );
 
+  const bulkImportTrades = useCallback(
+    async (rows: Omit<Trade, 'id' | 'profileId' | 'pnl' | 'outcome'>[]) => {
+      if (!profileId || rows.length === 0) return;
+
+      const payload = rows.map((tradeInput) => {
+        const { direction, entryPrice, exitPrice, positionSize } = tradeInput;
+        const rawPnl =
+          direction === 'Long'
+            ? (exitPrice - entryPrice) * positionSize
+            : (entryPrice - exitPrice) * positionSize;
+        const pnl = Number(rawPnl.toFixed(2));
+
+        let outcome: 'Win' | 'Loss' | 'Breakeven' = 'Breakeven';
+        if (pnl > 0.005) outcome = 'Win';
+        else if (pnl < -0.005) outcome = 'Loss';
+
+        return {
+          profile_id: profileId,
+          pair: tradeInput.pair,
+          direction,
+          entry_price: entryPrice,
+          exit_price: exitPrice,
+          position_size: positionSize,
+          profit_level: tradeInput.profitLevel ?? null,
+          stop_level: tradeInput.stopLevel ?? null,
+          pnl,
+          outcome,
+          risk_reward: tradeInput.riskReward,
+          notes: tradeInput.notes || '',
+          images: tradeInput.images || [],
+          image_url: tradeInput.image_url || '',
+          created_at: tradeInput.createdAt,
+        };
+      });
+
+      const { error } = await supabase.from('trades').insert(payload);
+
+      if (error) {
+        console.error('[Supabase] Bulk import error:', error.message, error.details, error.hint);
+        throw error;
+      }
+    },
+    [profileId]
+  );
+
   const deleteTrade = useCallback(async (id: string) => {
     const { error } = await supabase
       .from('trades')
@@ -409,6 +371,7 @@ export function useTrades(profileId: string | null) {
     dailyLogs,
     addTrade,
     updateTrade,
+    bulkImportTrades,
     deleteTrade,
     getDayLog,
   };

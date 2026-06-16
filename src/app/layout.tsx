@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ProfileProvider } from '@/context/ProfileContext';
+import ThemeProviderClient from '@/components/ThemeProviderClient';
 
 export const metadata: Metadata = {
   title: 'Trading Journal — Track, Analyze, Improve',
@@ -22,14 +23,16 @@ export default function RootLayout({
           rel="preconnect"
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
-          />
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
           rel="stylesheet"
-          />
+        />
       </head>
       <body className="antialiased">
-        <ProfileProvider>{children}</ProfileProvider>
+        <ThemeProviderClient>
+          <ProfileProvider>{children}</ProfileProvider>
+        </ThemeProviderClient>
       </body>
     </html>
   );

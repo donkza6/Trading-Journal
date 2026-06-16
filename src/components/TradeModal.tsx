@@ -23,7 +23,15 @@ import {
   Activity,
   ImagePlus,
   Upload,
-  Loader2
+  Loader2,
+  Target,
+  ShieldAlert,
+  LogIn,
+  LogOut,
+  Layers,
+  Scale,
+  Calculator,
+  Megaphone,
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════
@@ -118,8 +126,8 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
         className="relative bg-journal-card rounded-[var(--radius-card)] shadow-modal w-full max-w-[580px] max-h-[90vh] flex flex-col overflow-hidden animate-scale-in max-sm:max-h-[95vh] max-sm:rounded-xl max-sm:m-2"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Header ── */}
-        <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-border-light max-sm:px-4 max-sm:pt-4 max-sm:pb-3">
+        {/* ── Header (sticky) ── */}
+        <div className="shrink-0 flex items-start justify-between px-6 pt-6 pb-4 border-b border-border-light max-sm:px-4 max-sm:pt-4 max-sm:pb-3">
           <div>
             <h2 className="text-[1.1rem] font-extrabold tracking-tight">
               {formattedDate}
@@ -147,7 +155,7 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
         </div>
 
         {/* ── Body ── */}
-        <div className="p-6 overflow-y-auto flex-1 max-sm:p-4">
+        <div className="flex flex-col flex-1 min-h-0">
           {showForm || editingTrade ? (
             <TradeForm
               date={date}
@@ -159,193 +167,202 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
             />
           ) : (
             <>
-              {/* Trade list */}
-              {trades.length > 0 ? (
-                <div className="flex flex-col gap-4">
-                  {trades.map((trade, i) => {
-                    const tradeImages = getTradeImages(trade);
-                    return (
-                    <div
-                      key={trade.id}
-                      className="bg-journal-elevated rounded-[var(--radius-button)] p-4 border border-border-light flex flex-col gap-2 animate-slide-up hover:shadow-card transition-shadow"
-                      style={{ animationDelay: `${i * 60}ms` }}
-                    >
-                      {/* Pair + P&L */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-extrabold ${
-                              trade.direction === 'Long'
-                                ? 'bg-emerald-500/10 text-emerald-600'
-                                : 'bg-rose-500/10 text-rose-600'
-                            }`}
-                          >
-                            {trade.direction === 'Long' ? (
-                              <ArrowUpRight className="w-3.5 h-3.5" />
-                            ) : (
-                              <ArrowDownRight className="w-3.5 h-3.5" />
-                            )}
-                          </span>
-                          <span className="font-bold text-[0.95rem] font-mono">
-                            {trade.pair}
-                          </span>
-                        </div>
-                        <span
-                          className={`font-mono font-extrabold text-base ${trade.pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 max-sm:p-4">
+                {/* Trade list */}
+                {trades.length > 0 ? (
+                  <div className="flex flex-col gap-4">
+                    {trades.map((trade, i) => {
+                      const tradeImages = getTradeImages(trade);
+                      return (
+                        <div
+                          key={trade.id}
+                          className="bg-journal-elevated rounded-[var(--radius-button)] p-4 border border-border-light flex flex-col gap-2 animate-slide-up hover:shadow-card transition-shadow"
+                          style={{ animationDelay: `${i * 60}ms` }}
                         >
-                          {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
-                        </span>
-                      </div>
-
-                      {/* Detail grid */}
-                      <div className="grid grid-cols-3 gap-x-2 gap-y-3 py-2.5 border-y border-border-light max-sm:grid-cols-2">
-                        {[
-                          { label: 'Entry', val: `$${trade.entryPrice.toLocaleString()}` },
-                          { label: 'Exit', val: `$${trade.exitPrice.toLocaleString()}` },
-                          { label: 'Size', val: trade.positionSize.toString() },
-                          {
-                            label: 'Profit Lvl',
-                            val: trade.profitLevel !== undefined && trade.profitLevel !== null ? `$${trade.profitLevel.toLocaleString()}` : '—',
-                            color: trade.profitLevel !== undefined && trade.profitLevel !== null ? 'text-profit font-bold' : ''
-                          },
-                          {
-                            label: 'Stop Lvl',
-                            val: trade.stopLevel !== undefined && trade.stopLevel !== null ? `$${trade.stopLevel.toLocaleString()}` : '—',
-                            color: trade.stopLevel !== undefined && trade.stopLevel !== null ? 'text-loss font-bold' : ''
-                          },
-                          { label: 'R:R', val: trade.riskReward > 0 ? `${trade.riskReward.toFixed(1)}` : '—' },
-                        ].map((d) => (
-                          <div key={d.label} className="flex flex-col gap-0.5">
-                            <span className="text-[0.65rem] font-bold uppercase tracking-wider text-journal-text-muted">
-                              {d.label}
-                            </span>
-                            <span className={`font-mono text-[0.82rem] font-semibold ${d.color || ''}`}>
-                              {d.val}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Notes */}
-                      {trade.notes && (
-                        <p className="text-[0.82rem] text-journal-text-secondary leading-relaxed italic">
-                          {trade.notes}
-                        </p>
-                      )}
-
-                      {/* Chart screenshots */}
-                      {imageEditingTradeId === trade.id ? (
-                        <TradeImageEditor
-                          trade={trade}
-                          onClose={() => setImageEditingTradeId(null)}
-                        />
-                      ) : (
-                        <>
-                          {tradeImages.length > 0 && (
-                            <div
-                              className={`mt-2 grid gap-2 ${
-                                tradeImages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-                              }`}
-                            >
-                              {tradeImages.map((img, idx) => (
-                                <button
-                                  key={`${img}-${idx}`}
-                                  type="button"
-                                  className="rounded-xl overflow-hidden border border-neutral-200 cursor-pointer hover:scale-[1.01] hover:shadow-sm transition-all p-0 bg-transparent w-full aspect-[16/10]"
-                                  onClick={() => setExpandedImage(img)}
-                                >
-                                  <img
-                                    src={img}
-                                    alt={`Chart ${idx + 1}`}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </button>
-                              ))}
+                          {/* Pair + P&L */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-extrabold ${trade.direction === 'Long'
+                                    ? 'bg-emerald-500/10 text-emerald-600'
+                                    : 'bg-rose-500/10 text-rose-600'
+                                  }`}
+                              >
+                                {trade.direction === 'Long' ? (
+                                  <ArrowUpRight className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ArrowDownRight className="w-3.5 h-3.5" />
+                                )}
+                              </span>
+                              <span className="font-bold text-[0.95rem] font-mono">
+                                {trade.pair}
+                              </span>
                             </div>
-                          )}
-                        </>
-                      )}
-
-                      {/* Actions (Edit & Delete) */}
-                      <div className="self-end flex items-center gap-3 flex-wrap justify-end">
-                        {!deleteConfirmId && imageEditingTradeId !== trade.id && (
-                          <button
-                            className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-journal-text hover:bg-neutral-100 transition-colors flex items-center gap-1"
-                            onClick={() => {
-                              setDeleteConfirmId(null);
-                              setImageEditingTradeId(trade.id);
-                            }}
-                          >
-                            <ImagePlus className="w-3 h-3" />
-                            {tradeImages.length > 0 ? 'Edit Images' : 'Add Image'}
-                          </button>
-                        )}
-                        {!deleteConfirmId && imageEditingTradeId !== trade.id && (
-                          <button
-                            className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-journal-text hover:bg-neutral-100 transition-colors flex items-center gap-1"
-                            onClick={() => {
-                              setImageEditingTradeId(null);
-                              setEditingTrade(trade);
-                            }}
-                          >
-                            <Edit2 className="w-3 h-3" /> Edit
-                          </button>
-                        )}
-                        {deleteConfirmId === trade.id ? (
-                          <div className="flex items-center gap-2 animate-fade-in">
-                            <span className="text-[0.7rem] font-bold text-rose-600">Delete this trade?</span>
-                            <button
-                              className="text-[0.72rem] font-bold text-rose-600 bg-rose-500/10 px-2.5 py-1 rounded-md cursor-pointer hover:bg-rose-500/20 transition-colors"
-                              onClick={() => {
-                                deleteTrade(trade.id);
-                                setDeleteConfirmId(null);
-                              }}
+                            <span
+                              className={`font-mono font-extrabold text-base ${trade.pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
                             >
-                              Yes
-                            </button>
-                            <button
-                              className="text-[0.72rem] font-semibold text-journal-text-secondary bg-journal-bg px-2.5 py-1 rounded-md cursor-pointer hover:bg-border-light transition-colors"
-                              onClick={() => setDeleteConfirmId(null)}
-                            >
-                              No
-                            </button>
+                              {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                            </span>
                           </div>
-                        ) : imageEditingTradeId !== trade.id ? (
-                          <button
-                            className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-rose-600 hover:bg-rose-500/10 transition-colors flex items-center gap-1"
-                            onClick={() => {
-                              setImageEditingTradeId(null);
-                              setDeleteConfirmId(trade.id);
-                            }}
-                          >
-                            <Trash2 className="w-3 h-3" /> Delete
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                /* Empty state */
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <FileText className="w-12 h-12 text-neutral-400 mb-3" />
-                  <p className="text-base font-bold text-journal-text">
-                    No trades recorded for this day
-                  </p>
-                  <p className="text-sm text-journal-text-muted mt-1">
-                    Add your first trade to start tracking
-                  </p>
-                </div>
-              )}
 
-              {/* Add button */}
-              <button
-                className="w-full mt-4 py-3.5 rounded-[var(--radius-button)] bg-journal-text text-journal-text-inverse font-bold text-[0.9rem] cursor-pointer hover:bg-[#1a1616] hover:shadow-card-hover transition-all active:scale-[0.97]"
-                onClick={() => setShowForm(true)}
-              >
-                + Add New Trade
-              </button>
+                          {/* Detail grid */}
+                          <div className="grid grid-cols-3 gap-x-2 gap-y-3 py-2.5 border-y border-border-light max-sm:grid-cols-2">
+                            {[
+                              { label: 'Entry', val: `$${trade.entryPrice.toLocaleString()}`, icon: LogIn },
+                              { label: 'Exit', val: `$${trade.exitPrice.toLocaleString()}`, icon: LogOut },
+                              { label: 'Size', val: trade.positionSize.toString(), icon: Layers },
+                              {
+                                label: 'Profit Lvl',
+                                val: trade.profitLevel !== undefined && trade.profitLevel !== null ? `$${trade.profitLevel.toLocaleString()}` : '—',
+                                color: trade.profitLevel !== undefined && trade.profitLevel !== null ? 'text-profit font-bold' : '',
+                                icon: Target,
+                              },
+                              {
+                                label: 'Stop Lvl',
+                                val: trade.stopLevel !== undefined && trade.stopLevel !== null ? `$${trade.stopLevel.toLocaleString()}` : '—',
+                                color: trade.stopLevel !== undefined && trade.stopLevel !== null ? 'text-loss font-bold' : '',
+                                icon: ShieldAlert,
+                              },
+                              { label: 'R:R', val: trade.riskReward > 0 ? `${trade.riskReward.toFixed(1)}` : '—', icon: Scale },
+                            ].map((d) => {
+                              const DetailIcon = d.icon;
+                              return (
+                                <div key={d.label} className="flex flex-col gap-0.5">
+                                  <span className="text-[0.65rem] font-bold uppercase tracking-wider text-journal-text-muted flex items-center gap-1">
+                                    <DetailIcon className="w-3 h-3 opacity-60" />
+                                    {d.label}
+                                  </span>
+                                  <span className={`font-mono text-[0.82rem] font-semibold ${d.color || ''}`}>
+                                    {d.val}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Notes */}
+                          {trade.notes && (
+                            <p className="text-[0.82rem] text-journal-text-secondary leading-relaxed italic">
+                              {trade.notes}
+                            </p>
+                          )}
+
+                          {/* Chart screenshots */}
+                          {imageEditingTradeId === trade.id ? (
+                            <TradeImageEditor
+                              trade={trade}
+                              onClose={() => setImageEditingTradeId(null)}
+                            />
+                          ) : (
+                            <>
+                              {tradeImages.length > 0 && (
+                                <div
+                                  className={`mt-2 grid gap-2 ${tradeImages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+                                    }`}
+                                >
+                                  {tradeImages.map((img, idx) => (
+                                    <button
+                                      key={`${img}-${idx}`}
+                                      type="button"
+                                      className="rounded-xl overflow-hidden border border-neutral-200 cursor-pointer hover:scale-[1.01] hover:shadow-sm transition-all p-0 bg-transparent w-full aspect-[16/10]"
+                                      onClick={() => setExpandedImage(img)}
+                                    >
+                                      <img
+                                        src={img}
+                                        alt={`Chart ${idx + 1}`}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {/* Actions (Edit & Delete) */}
+                          <div className="self-end flex items-center gap-3 flex-wrap justify-end">
+                            {!deleteConfirmId && imageEditingTradeId !== trade.id && (
+                              <button
+                                className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-journal-text hover:bg-neutral-100 transition-colors flex items-center gap-1"
+                                onClick={() => {
+                                  setDeleteConfirmId(null);
+                                  setImageEditingTradeId(trade.id);
+                                }}
+                              >
+                                <ImagePlus className="w-3 h-3" />
+                                {tradeImages.length > 0 ? 'Edit Images' : 'Add Image'}
+                              </button>
+                            )}
+                            {!deleteConfirmId && imageEditingTradeId !== trade.id && (
+                              <button
+                                className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-journal-text hover:bg-neutral-100 transition-colors flex items-center gap-1"
+                                onClick={() => {
+                                  setImageEditingTradeId(null);
+                                  setEditingTrade(trade);
+                                }}
+                              >
+                                <Edit2 className="w-3 h-3" /> Edit
+                              </button>
+                            )}
+                            {deleteConfirmId === trade.id ? (
+                              <div className="flex items-center gap-2 animate-fade-in">
+                                <span className="text-[0.7rem] font-bold text-rose-600">Delete this trade?</span>
+                                <button
+                                  className="text-[0.72rem] font-bold text-rose-600 bg-rose-500/10 px-2.5 py-1 rounded-md cursor-pointer hover:bg-rose-500/20 transition-colors"
+                                  onClick={() => {
+                                    deleteTrade(trade.id);
+                                    setDeleteConfirmId(null);
+                                  }}
+                                >
+                                  Yes
+                                </button>
+                                <button
+                                  className="text-[0.72rem] font-semibold text-journal-text-secondary bg-journal-bg px-2.5 py-1 rounded-md cursor-pointer hover:bg-border-light transition-colors"
+                                  onClick={() => setDeleteConfirmId(null)}
+                                >
+                                  No
+                                </button>
+                              </div>
+                            ) : imageEditingTradeId !== trade.id ? (
+                              <button
+                                className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-rose-600 hover:bg-rose-500/10 transition-colors flex items-center gap-1"
+                                onClick={() => {
+                                  setImageEditingTradeId(null);
+                                  setDeleteConfirmId(trade.id);
+                                }}
+                              >
+                                <Trash2 className="w-3 h-3" /> Delete
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in">
+                    <div className="w-20 h-20 rounded-2xl bg-neutral-100 border border-neutral-200/60 flex items-center justify-center mb-4">
+                      <FileText className="w-10 h-10 text-neutral-400" />
+                    </div>
+                    <p className="text-lg font-extrabold text-journal-text tracking-tight">
+                      No trades logged today
+                    </p>
+                    <p className="text-sm text-journal-text-muted mt-2 max-w-[280px] leading-relaxed">
+                      Add your first trade to start tracking your performance for this day.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Sticky footer */}
+              <div className="shrink-0 px-6 py-4 border-t border-border-light bg-journal-card max-sm:px-4">
+                <button
+                  className="w-full py-3.5 rounded-[var(--radius-button)] bg-journal-text text-journal-text-inverse font-bold text-[0.9rem] cursor-pointer hover:bg-[#1a1616] hover:shadow-card-hover transition-all active:scale-[0.97]"
+                  onClick={() => setShowForm(true)}
+                >
+                  + Add New Trade
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -493,9 +510,8 @@ function TradeImageEditor({ trade, onClose }: TradeImageEditorProps) {
 
       {allPreviews.length > 0 && (
         <div
-          className={`grid gap-2 ${
-            allPreviews.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-          }`}
+          className={`grid gap-2 ${allPreviews.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+            }`}
         >
           {imageList.map((img, idx) => (
             <div
@@ -549,11 +565,10 @@ function TradeImageEditor({ trade, onClose }: TradeImageEditorProps) {
         onDragLeave={handleDrag}
         onDrop={handleDrop}
         onClick={() => fileRef.current?.click()}
-        className={`w-full min-h-[100px] rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer p-4 text-center transition-all duration-200 ${
-          dragActive
+        className={`w-full min-h-[100px] rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer p-4 text-center transition-all duration-200 ${dragActive
             ? 'border-journal-text bg-journal-bg/50'
             : 'border-neutral-300 bg-transparent hover:border-neutral-400 hover:bg-neutral-50/50'
-        }`}
+          }`}
       >
         <Upload className="w-4 h-4 text-neutral-500" />
         <p className="text-[0.72rem] font-semibold text-neutral-700">
@@ -623,6 +638,22 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(editingTrade?.image_url ?? '');
   const [dragActive, setDragActive] = useState(false);
+
+  // Position sizing calculator states
+  const [showSizing, setShowSizing] = useState(false);
+  const [accountBalance, setAccountBalance] = useState(editingTrade ? '' : '');
+  const [riskPercent, setRiskPercent] = useState('1');
+  const [stopLossPipsCalc, setStopLossPipsCalc] = useState('');
+
+  // Pre-trade checklist & grade
+  const [followedPlan, setFollowedPlan] = useState(false);
+  const [notEmotional, setNotEmotional] = useState(false);
+  const [riskDefined, setRiskDefined] = useState(false);
+  const [setupGrade, setSetupGrade] = useState<string | null>(editingTrade?.setup_grade ?? null);
+
+  // Advanced info (news event)
+  const [showAdvancedInfo, setShowAdvancedInfo] = useState(false);
+  const [newsEvent, setNewsEvent] = useState<string>(editingTrade?.news_event ?? 'None');
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -875,6 +906,10 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
   const handleSubmit = async (ev: FormEvent) => {
     ev.preventDefault();
     if (!pair || !entryPrice || !positionSize) return;
+    if (!setupGrade) {
+      alert('Please select a Setup Grade (A, B, or C) before saving.');
+      return;
+    }
     setSaving(true);
 
     try {
@@ -919,6 +954,8 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
         notes,
         images,
         image_url: finalImageUrl,
+        setup_grade: setupGrade,
+        news_event: newsEvent,
         createdAt: date + 'T12:00:00',
       };
 
@@ -948,280 +985,397 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
     'w-full text-[0.9rem] py-2.5 px-3.5 rounded-[var(--radius-button)] border-[1.5px] border-border-medium bg-journal-elevated text-journal-text outline-none transition-all duration-150 focus:border-journal-text focus:shadow-[0_0_0_3px_rgba(42,38,38,0.08)] placeholder:text-journal-text-muted';
 
   return (
-    <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-[1.15rem] font-extrabold">
-          {editingTrade ? 'Edit Trade' : 'Add New Trade'}
-        </h3>
-        <span className="text-[0.82rem] font-semibold text-journal-text-muted bg-journal-bg px-3 py-1 rounded-full">
-          {dateLabel}
-        </span>
-      </div>
+    <form className="flex flex-col flex-1 min-h-0" onSubmit={handleSubmit}>
+      <div className="flex-1 overflow-y-auto max-h-[60vh] custom-scrollbar px-6 py-4 max-sm:px-4 flex flex-col gap-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-[1.15rem] font-extrabold">
+            {editingTrade ? 'Edit Trade' : 'Add New Trade'}
+          </h3>
+          <span className="text-[0.82rem] font-semibold text-journal-text-muted bg-journal-bg px-3 py-1 rounded-full">
+            {dateLabel}
+          </span>
+        </div>
 
-      {/* Direction toggle */}
-      <div className="grid grid-cols-2 gap-2 bg-journal-bg p-1 rounded-[var(--radius-button)]">
-        <button
-          type="button"
-          onClick={() => handleDirectionChange('Long')}
-          className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all flex items-center justify-center gap-1 ${
-            direction === 'Long'
-              ? 'bg-emerald-500/10 text-emerald-700 shadow-sm'
-              : 'bg-transparent text-journal-text-secondary'
-          }`}
-        >
-          <ArrowUpRight className="w-4 h-4" /> Long
-        </button>
-        <button
-          type="button"
-          onClick={() => handleDirectionChange('Short')}
-          className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all flex items-center justify-center gap-1 ${
-            direction === 'Short'
-              ? 'bg-rose-500/10 text-rose-700 shadow-sm'
-              : 'bg-transparent text-journal-text-secondary'
-          }`}
-        >
-          <ArrowDownRight className="w-4 h-4" /> Short
-        </button>
-      </div>
+        {/* Direction toggle */}
+        <div className="grid grid-cols-2 gap-2 bg-journal-bg p-1 rounded-[var(--radius-button)]">
+          <button
+            type="button"
+            onClick={() => handleDirectionChange('Long')}
+            className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all flex items-center justify-center gap-1 ${direction === 'Long'
+                ? 'bg-emerald-500/10 text-emerald-700 shadow-sm'
+                : 'bg-transparent text-journal-text-secondary'
+              }`}
+          >
+            <ArrowUpRight className="w-4 h-4" /> Long
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDirectionChange('Short')}
+            className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all flex items-center justify-center gap-1 ${direction === 'Short'
+                ? 'bg-rose-500/10 text-rose-700 shadow-sm'
+                : 'bg-transparent text-journal-text-secondary'
+              }`}
+          >
+            <ArrowDownRight className="w-4 h-4" /> Short
+          </button>
+        </div>
 
-      {/* Fields */}
-      <div className="flex flex-col gap-4">
-        <Field label="Trading Pair / Asset">
-          <input
-            className={inputCls}
-            type="text"
-            placeholder="e.g. BTC/USDT, EUR/USD, AAPL"
-            value={pair}
-            onChange={(e) => setPair(e.target.value)}
-            required
+        {/* Fields */}
+        <div className="flex flex-col gap-4">
+          <Field label="Trading Pair / Asset">
+            <input
+              className={inputCls}
+              type="text"
+              placeholder="e.g. BTC/USDT, EUR/USD, AAPL"
+              value={pair}
+              onChange={(e) => setPair(e.target.value)}
+              required
+            />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">
+            <Field label="Entry Price">
+              <input
+                className={inputCls}
+                type="number"
+                step="any"
+                placeholder="0.00"
+                value={entryPrice}
+                onChange={(e) => handleEntryChange(e.target.value)}
+                required
+              />
+            </Field>
+
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
+                  Position Size
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowSizing((s) => !s)}
+                  className="p-2 rounded-md bg-transparent hover:bg-neutral-100 transition-colors flex items-center gap-2 text-journal-text-muted"
+                  title="Open position sizing calculator"
+                >
+                  <Calculator className="w-4 h-4" />
+                </button>
+              </div>
+
+              <input
+                className={inputCls}
+                type="number"
+                step="any"
+                placeholder="Qty / Units"
+                value={positionSize}
+                onChange={(e) => setPositionSize(e.target.value)}
+                required
+              />
+
+              {showSizing && (
+                <div className="mt-2 p-3 rounded-xl border border-border-light bg-journal-bg/50 flex flex-col gap-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">Account ($)</label>
+                      <input
+                        className={inputCls}
+                        type="number"
+                        step="any"
+                        placeholder="e.g. 10000"
+                        value={accountBalance}
+                        onChange={(e) => setAccountBalance(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">Risk %</label>
+                      <input
+                        className={inputCls}
+                        type="number"
+                        step="any"
+                        placeholder="e.g. 1"
+                        value={riskPercent}
+                        onChange={(e) => setRiskPercent(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">Stop Loss (pips)</label>
+                      <input
+                        className={inputCls}
+                        type="number"
+                        step="any"
+                        placeholder="e.g. 20"
+                        value={stopLossPipsCalc}
+                        onChange={(e) => setStopLossPipsCalc(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <SizingPreview
+                    entryPrice={parseFloat(entryPrice || '0')}
+                    accountBalance={accountBalance}
+                    riskPercent={riskPercent}
+                    stopLossPips={stopLossPipsCalc}
+                    getPipSize={getPipSize}
+                    onApply={(size) => setPositionSize(size)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Take Profit (TP) Price, Pips, Points */}
+          <div className="flex flex-col gap-1.5 animate-fade-in">
+            <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
+              Take Profit (TP)
+            </span>
+            <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1 max-sm:gap-2">
+              <div>
+                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
+                <input
+                  className={inputCls}
+                  type="number"
+                  step="any"
+                  placeholder="Level"
+                  value={tpPrice}
+                  onChange={(e) => handleTpPriceChange(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PIPS</label>
+                <input
+                  className={inputCls}
+                  type="number"
+                  step="any"
+                  placeholder="Pips"
+                  value={tpPips}
+                  onChange={(e) => handleTpPipsChange(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">POINTS</label>
+                <input
+                  className={inputCls}
+                  type="number"
+                  step="any"
+                  placeholder="Points"
+                  value={tpPoints}
+                  onChange={(e) => handleTpPointsChange(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Stop Loss (SL) Price, Pips, Points */}
+          <div className="flex flex-col gap-1.5 animate-fade-in">
+            <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
+              Stop Loss (SL)
+            </span>
+            <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1 max-sm:gap-2">
+              <div>
+                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
+                <input
+                  className={inputCls}
+                  type="number"
+                  step="any"
+                  placeholder="Level"
+                  value={slPrice}
+                  onChange={(e) => handleSlPriceChange(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PIPS</label>
+                <input
+                  className={inputCls}
+                  type="number"
+                  step="any"
+                  placeholder="Pips"
+                  value={slPips}
+                  onChange={(e) => handleSlPipsChange(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">POINTS</label>
+                <input
+                  className={inputCls}
+                  type="number"
+                  step="any"
+                  placeholder="Points"
+                  value={slPoints}
+                  onChange={(e) => handleSlPointsChange(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">
+            <Field label="Risk / Reward">
+              <input
+                className={inputCls}
+                type="number"
+                step="any"
+                placeholder="e.g. 2.5"
+                value={riskReward}
+                onChange={(e) => setRiskReward(e.target.value)}
+              />
+            </Field>
+            <Field label="Outcome">
+              <select
+                className={inputCls}
+                value={outcome}
+                onChange={(e) => setOutcome(e.target.value as TradeOutcome)}
+              >
+                <option value="Win">Win (hits TP)</option>
+                <option value="Loss">Loss (hits SL)</option>
+                <option value="Breakeven">Breakeven</option>
+              </select>
+            </Field>
+          </div>
+
+          {/* P&L preview */}
+          {previewPnl !== null && (
+            <div
+              className={`flex items-center justify-between px-4 py-3 rounded-xl animate-fade-in border ${previewPnl >= 0
+                  ? 'bg-emerald-500/10 border-emerald-500/20'
+                  : 'bg-rose-500/10 border-rose-500/20'
+                }`}
+            >
+              <span className="text-[0.8rem] font-semibold text-journal-text-secondary">
+                Estimated P&L ({outcome})
+              </span>
+              <span
+                className={`font-mono text-[1.1rem] font-extrabold ${previewPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+              >
+                {previewPnl >= 0 ? '+' : ''}${previewPnl.toFixed(2)}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Notes */}
+        <Field label="Notes & Reasoning">
+          <textarea
+            className={`${inputCls} resize-y min-h-[80px]`}
+            placeholder="What was your reasoning? What did you learn?"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">
-          <Field label="Entry Price">
-            <input
-              className={inputCls}
-              type="number"
-              step="any"
-              placeholder="0.00"
-              value={entryPrice}
-              onChange={(e) => handleEntryChange(e.target.value)}
-              required
-            />
-          </Field>
-          <Field label="Position Size">
-            <input
-              className={inputCls}
-              type="number"
-              step="any"
-              placeholder="Qty / Units"
-              value={positionSize}
-              onChange={(e) => setPositionSize(e.target.value)}
-              required
-            />
-          </Field>
-        </div>
-
-        {/* Take Profit (TP) Price, Pips, Points */}
-        <div className="flex flex-col gap-1.5 animate-fade-in">
-          <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
-            Take Profit (TP)
-          </span>
-          <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1 max-sm:gap-2">
-            <div>
-              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
-              <input
-                className={inputCls}
-                type="number"
-                step="any"
-                placeholder="Level"
-                value={tpPrice}
-                onChange={(e) => handleTpPriceChange(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PIPS</label>
-              <input
-                className={inputCls}
-                type="number"
-                step="any"
-                placeholder="Pips"
-                value={tpPips}
-                onChange={(e) => handleTpPipsChange(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">POINTS</label>
-              <input
-                className={inputCls}
-                type="number"
-                step="any"
-                placeholder="Points"
-                value={tpPoints}
-                onChange={(e) => handleTpPointsChange(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Stop Loss (SL) Price, Pips, Points */}
-        <div className="flex flex-col gap-1.5 animate-fade-in">
-          <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
-            Stop Loss (SL)
-          </span>
-          <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1 max-sm:gap-2">
-            <div>
-              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PRICE</label>
-              <input
-                className={inputCls}
-                type="number"
-                step="any"
-                placeholder="Level"
-                value={slPrice}
-                onChange={(e) => handleSlPriceChange(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">PIPS</label>
-              <input
-                className={inputCls}
-                type="number"
-                step="any"
-                placeholder="Pips"
-                value={slPips}
-                onChange={(e) => handleSlPipsChange(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-[0.65rem] font-bold text-journal-text-muted block mb-1">POINTS</label>
-              <input
-                className={inputCls}
-                type="number"
-                step="any"
-                placeholder="Points"
-                value={slPoints}
-                onChange={(e) => handleSlPointsChange(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">
-          <Field label="Risk / Reward">
-            <input
-              className={inputCls}
-              type="number"
-              step="any"
-              placeholder="e.g. 2.5"
-              value={riskReward}
-              onChange={(e) => setRiskReward(e.target.value)}
-            />
-          </Field>
-          <Field label="Outcome">
-            <select
-              className={inputCls}
-              value={outcome}
-              onChange={(e) => setOutcome(e.target.value as TradeOutcome)}
-            >
-              <option value="Win">Win (hits TP)</option>
-              <option value="Loss">Loss (hits SL)</option>
-              <option value="Breakeven">Breakeven</option>
-            </select>
-          </Field>
-        </div>
-
-        {/* P&L preview */}
-        {previewPnl !== null && (
-          <div
-            className={`flex items-center justify-between px-4 py-3 rounded-xl animate-fade-in border ${
-              previewPnl >= 0
-                ? 'bg-emerald-500/10 border-emerald-500/20'
-                : 'bg-rose-500/10 border-rose-500/20'
-            }`}
-          >
-            <span className="text-[0.8rem] font-semibold text-journal-text-secondary">
-              Estimated P&L ({outcome})
-            </span>
-            <span
-              className={`font-mono text-[1.1rem] font-extrabold ${previewPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
-            >
-              {previewPnl >= 0 ? '+' : ''}${previewPnl.toFixed(2)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Notes */}
-      <Field label="Notes & Reasoning">
-        <textarea
-          className={`${inputCls} resize-y min-h-[80px]`}
-          placeholder="What was your reasoning? What did you learn?"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
-        />
-      </Field>
-
-      {/* Chart Screenshot upload dropzone */}
-      <div className="flex flex-col gap-2">
-        <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
-          Chart Screenshot
-        </span>
-
-        {previewUrl ? (
-          <div className="relative rounded-2xl overflow-hidden border border-neutral-200 shadow-sm max-w-full aspect-[16/10] bg-neutral-50 flex items-center justify-center">
-            <img
-              src={previewUrl}
-              alt="Chart preview"
-              className="w-full h-full object-contain"
-            />
+        {/* Pre-Trade Checklist & Setup Grade */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">Pre-Trade Checklist</span>
             <button
               type="button"
-              onClick={handleRemoveImage}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full border-none bg-black/60 text-white cursor-pointer flex items-center justify-center hover:bg-rose-600 transition-colors shadow-sm"
-              title="Remove screenshot"
+              onClick={() => { setFollowedPlan(false); setNotEmotional(false); setRiskDefined(false); setSetupGrade(null); }}
+              className="text-[0.72rem] text-journal-text-muted hover:underline"
+            >Reset</button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <label className="flex items-center gap-2 text-[0.9rem]"><input type="checkbox" checked={followedPlan} onChange={(e) => setFollowedPlan(e.target.checked)} /> Followed Trading Plan</label>
+            <label className="flex items-center gap-2 text-[0.9rem]"><input type="checkbox" checked={notEmotional} onChange={(e) => setNotEmotional(e.target.checked)} /> Not Emotional</label>
+            <label className="flex items-center gap-2 text-[0.9rem]"><input type="checkbox" checked={riskDefined} onChange={(e) => setRiskDefined(e.target.checked)} /> Risk Defined</label>
+          </div>
+
+          <div>
+            <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">Setup Grade</span>
+            <div className="mt-2 flex items-center gap-3">
+              {['A', 'B', 'C'].map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setSetupGrade(g)}
+                  className={`px-4 py-2 rounded-lg font-bold border ${setupGrade === g ? 'ring-2 ring-offset-2' : 'bg-transparent'} ${g === 'A' ? 'bg-emerald-50 text-emerald-700' : ' '} ${g === 'B' ? 'bg-yellow-50 text-yellow-700' : ' '} ${g === 'C' ? 'bg-rose-50 text-rose-700' : ''}`}
+                >{g}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Advanced Info: News Event */}
+          <div className="mt-1">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedInfo((s) => !s)}
+              className="flex items-center gap-2 text-[0.85rem] text-journal-text-muted hover:underline"
             >
-              <X className="w-4 h-4" />
+              <Megaphone className="w-4 h-4" /> Advanced Info
             </button>
+
+            {showAdvancedInfo && (
+              <div className="mt-2">
+                <select className={inputCls} value={newsEvent} onChange={(e) => setNewsEvent(e.target.value)}>
+                  <option>None</option>
+                  <option>NFP</option>
+                  <option>CPI</option>
+                  <option>FOMC</option>
+                  <option>Interest Rate Decision</option>
+                </select>
+              </div>
+            )}
           </div>
-        ) : (
-          <div
-            onDragEnter={handleDrag}
-            onDragOver={handleDrag}
-            onDragLeave={handleDrag}
-            onDrop={handleDrop}
-            onClick={() => fileRef.current?.click()}
-            className={`w-full min-h-[140px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2.5 cursor-pointer p-6 text-center transition-all duration-200 ${
-              dragActive
-                ? 'border-journal-text bg-journal-bg/50'
-                : 'border-neutral-300 bg-transparent hover:border-neutral-400 hover:bg-neutral-50/50'
-            }`}
-          >
-            <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center">
-              <ImagePlus className="w-5 h-5 text-neutral-500" />
+        </div>
+
+        {/* Chart Screenshot upload dropzone */}
+        <div className="flex flex-col gap-2">
+          <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">
+            Chart Screenshot
+          </span>
+
+          {previewUrl ? (
+            <div className="relative rounded-2xl overflow-hidden border border-neutral-200 shadow-sm max-w-full aspect-[16/10] bg-neutral-50 flex items-center justify-center">
+              <img
+                src={previewUrl}
+                alt="Chart preview"
+                className="w-full h-full object-contain"
+              />
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full border-none bg-black/60 text-white cursor-pointer flex items-center justify-center hover:bg-rose-600 transition-colors shadow-sm"
+                title="Remove screenshot"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <div>
-              <p className="text-xs font-bold text-neutral-800">
-                Click to upload or drag & drop
-              </p>
-              <p className="text-[0.68rem] text-neutral-400 mt-0.5">
-                PNG, JPG, or WEBP chart screenshot (Max 5MB)
-              </p>
+          ) : (
+            <div
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => fileRef.current?.click()}
+              className={`w-full min-h-[140px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2.5 cursor-pointer p-6 text-center transition-all duration-200 ${dragActive
+                  ? 'border-journal-text bg-journal-bg/50'
+                  : 'border-neutral-300 bg-transparent hover:border-neutral-400 hover:bg-neutral-50/50'
+                }`}
+            >
+              <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center">
+                <ImagePlus className="w-5 h-5 text-neutral-500" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-neutral-800">
+                  Click to upload or drag & drop
+                </p>
+                <p className="text-[0.68rem] text-neutral-400 mt-0.5">
+                  PNG, JPG, or WEBP chart screenshot (Max 5MB)
+                </p>
+              </div>
             </div>
-          </div>
-        )}
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={handleFileChange}
-        />
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={handleFileChange}
+          />
+        </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-end gap-2 pt-4 border-t border-border-light">
+      {/* Sticky footer */}
+      <div className="shrink-0 flex justify-end gap-2 px-6 py-4 border-t border-border-light bg-journal-card max-sm:px-4">
         <button
           type="button"
           onClick={onClose}
@@ -1231,7 +1385,7 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
         </button>
         <button
           type="submit"
-          disabled={!pair || !entryPrice || !positionSize || saving}
+          disabled={!pair || !entryPrice || !positionSize || !setupGrade || saving}
           className="px-5 py-2.5 rounded-xl bg-journal-text text-journal-text-inverse font-semibold text-[0.875rem] cursor-pointer hover:bg-[#1a1616] hover:shadow-card-hover transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
           {saving ? (
@@ -1265,6 +1419,51 @@ function Field({
         {label}
       </span>
       {children}
+    </div>
+  );
+}
+
+function SizingPreview({
+  entryPrice,
+  accountBalance,
+  riskPercent,
+  stopLossPips,
+  getPipSize,
+  onApply,
+}: {
+  entryPrice: number;
+  accountBalance: string;
+  riskPercent: string;
+  stopLossPips: string;
+  getPipSize: (entry: number) => number;
+  onApply: (size: string) => void;
+}) {
+  const acc = parseFloat(accountBalance || '0');
+  const rp = parseFloat(riskPercent || '0');
+  const stopPips = parseFloat(stopLossPips || '0');
+  const pipSize = getPipSize(entryPrice || 0) || 0.0001;
+  const riskAmount = acc * (rp / 100);
+  const suggestedSize = stopPips > 0 && pipSize > 0 ? Math.max(0, riskAmount / (stopPips * pipSize)) : 0;
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col">
+        <span className="text-[0.75rem] text-journal-text-muted">Risk Amount</span>
+        <span className="font-mono font-extrabold">${riskAmount.toFixed(2)}</span>
+      </div>
+      <div className="flex flex-col">
+        <span className="text-[0.75rem] text-journal-text-muted">Suggested Size</span>
+        <span className="font-mono font-extrabold">{suggestedSize ? suggestedSize.toFixed(4) : '—'}</span>
+      </div>
+      <div>
+        <button
+          type="button"
+          onClick={() => onApply(suggestedSize ? suggestedSize.toFixed(4) : '0')}
+          className="px-3 py-2 rounded-lg bg-journal-text text-journal-text-inverse font-semibold"
+        >
+          Apply Size
+        </button>
+      </div>
     </div>
   );
 }

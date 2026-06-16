@@ -150,3 +150,8 @@
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-medium) transparent;
+}

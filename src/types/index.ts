@@ -26,6 +26,8 @@ export interface Trade {
   notes: string;
   image_url?: string; // Uploaded chart screenshot URL from Supabase Storage
   images?: string[];  // Retain string array compatibility
+  setup_grade?: string | null; // 'A' | 'B' | 'C' optionally stored from pre-trade checklist
+  news_event?: string | null; // Optional macro/news event tag
   createdAt: string;
 }
 
