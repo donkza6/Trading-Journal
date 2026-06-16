@@ -15,12 +15,12 @@ import type { Profile, Trade, DailyLog, PortfolioMetrics } from '@/types';
    Predefined Sleek Avatars
    ═══════════════════════════════════════════ */
 export const AVATARS = [
-  { id: 'avatar-red', name: 'Ruby', emoji: '🦊', bg: '#fee2e2', color: '#dc2626' },
-  { id: 'avatar-blue', name: 'Ocean', emoji: '🐳', bg: '#dbeafe', color: '#2563eb' },
-  { id: 'avatar-green', name: 'Emerald', emoji: '🐸', bg: '#dcfce7', color: '#16a34a' },
-  { id: 'avatar-purple', name: 'Amethyst', emoji: '🦄', bg: '#f3e8ff', color: '#7c3aed' },
-  { id: 'avatar-orange', name: 'Amber', emoji: '🐯', bg: '#fef3c7', color: '#d97706' },
-  { id: 'avatar-dark', name: 'Obsidian', emoji: '🦅', bg: '#f3f4f6', color: '#1f2937' },
+  { id: 'avatar-red', name: 'Ruby', initials: 'RU', bg: '#fee2e2', color: '#dc2626' },
+  { id: 'avatar-blue', name: 'Ocean', initials: 'OC', bg: '#dbeafe', color: '#2563eb' },
+  { id: 'avatar-green', name: 'Emerald', initials: 'EM', bg: '#dcfce7', color: '#16a34a' },
+  { id: 'avatar-purple', name: 'Amethyst', initials: 'AM', bg: '#f3e8ff', color: '#7c3aed' },
+  { id: 'avatar-orange', name: 'Amber', initials: 'AB', bg: '#fef3c7', color: '#d97706' },
+  { id: 'avatar-dark', name: 'Obsidian', initials: 'OB', bg: '#f3f4f6', color: '#1f2937' },
 ] as const;
 
 /* ═══════════════════════════════════════════

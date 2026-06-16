@@ -124,29 +124,29 @@ function DayCell({
   let pnlColor = '';
 
   if (hasTrades && pnl !== null) {
-    if (pnl > 0) {
-      bgClass = 'bg-profit-bg';
-      borderClass = 'border-profit/20';
-      pnlColor = 'text-profit';
-    } else if (pnl < 0) {
-      bgClass = 'bg-loss-bg';
-      borderClass = 'border-loss/20';
-      pnlColor = 'text-loss';
+    if (pnl > 0.01) {
+      bgClass = 'bg-emerald-500/10';
+      borderClass = 'border-emerald-500/20';
+      pnlColor = 'text-emerald-700 font-bold';
+    } else if (pnl < -0.01) {
+      bgClass = 'bg-rose-500/10';
+      borderClass = 'border-rose-500/20';
+      pnlColor = 'text-rose-700 font-bold';
     } else {
-      bgClass = 'bg-breakeven-bg';
-      borderClass = 'border-breakeven/15';
-      pnlColor = 'text-breakeven';
+      bgClass = 'bg-amber-500/10';
+      borderClass = 'border-amber-500/20';
+      pnlColor = 'text-amber-700 font-bold';
     }
   }
 
   if (isToday) {
-    borderClass = 'border-journal-text';
-    bgClass = 'bg-journal-elevated';
+    borderClass = 'border-neutral-800';
+    bgClass = 'bg-neutral-100';
   }
 
   if (isSelected) {
-    borderClass = 'border-accent-blue';
-    bgClass = 'bg-accent-blue-bg';
+    borderClass = 'border-neutral-900 ring-2 ring-neutral-900/15';
+    bgClass = 'bg-neutral-50';
   }
 
   if (isFuture) {
@@ -160,14 +160,14 @@ function DayCell({
       disabled={isFuture}
       className={`
         relative aspect-square min-h-[72px] flex flex-col items-center justify-center gap-0.5
-        rounded-[var(--radius-button)] border-[1.5px] p-1
-        transition-all duration-150 ease-out cursor-pointer
-        hover:not-disabled:-translate-y-0.5 hover:not-disabled:shadow-card-hover
-        hover:not-disabled:border-border-medium
+        rounded-xl border-[1.5px] p-1.5
+        transition-all duration-200 ease-out cursor-pointer
+        hover:not-disabled:-translate-y-1 hover:not-disabled:shadow-md
+        hover:not-disabled:border-neutral-300
         active:not-disabled:scale-[0.97]
         disabled:cursor-default disabled:opacity-40
         max-md:min-h-[56px] max-md:aspect-auto
-        max-sm:min-h-[48px] max-sm:rounded-md max-sm:gap-px
+        max-sm:min-h-[48px] max-sm:rounded-lg max-sm:gap-px
         ${bgClass} ${borderClass}
       `}
       aria-label={`Day ${day}${hasTrades ? `, ${tradeCount} trades, P&L $${pnl?.toFixed(2)}` : ''}`}
@@ -178,7 +178,7 @@ function DayCell({
           text-[0.85rem] font-semibold leading-none
           max-md:text-[0.78rem] max-sm:text-[0.72rem]
           ${isFuture ? 'text-journal-text-muted' : 'text-journal-text'}
-          ${isToday ? 'bg-journal-text text-journal-text-inverse w-6 h-6 rounded-full flex items-center justify-center text-[0.78rem] max-sm:w-5 max-sm:h-5 max-sm:text-[0.68rem]' : ''}
+          ${isToday ? 'bg-neutral-900 text-white w-6 h-6 rounded-full flex items-center justify-center text-[0.75rem] max-sm:w-5 max-sm:h-5 max-sm:text-[0.68rem]' : ''}
         `}
       >
         {day}
@@ -187,7 +187,7 @@ function DayCell({
       {/* P&L display */}
       {hasTrades && pnl !== null && (
         <span
-          className={`font-mono text-[0.68rem] font-bold leading-none tracking-tight max-md:text-[0.6rem] max-sm:text-[0.55rem] ${pnlColor}`}
+          className={`font-mono text-[0.68rem] tracking-tight max-md:text-[0.6rem] max-sm:text-[0.55rem] ${pnlColor}`}
         >
           {pnl >= 0 ? '+' : ''}
           {pnl.toFixed(0)}
@@ -202,15 +202,15 @@ function DayCell({
               key={i}
               className={`w-1 h-1 rounded-full ${
                 pnl !== null && pnl > 0
-                  ? 'bg-profit'
+                  ? 'bg-emerald-500'
                   : pnl !== null && pnl < 0
-                    ? 'bg-loss'
-                    : 'bg-journal-text-muted'
+                    ? 'bg-rose-500'
+                    : 'bg-neutral-400'
               }`}
             />
           ))}
           {tradeCount > 4 && (
-            <span className="text-[0.55rem] font-bold text-journal-text-muted leading-none">
+            <span className="text-[0.55rem] font-bold text-neutral-400 leading-none">
               +
             </span>
           )}

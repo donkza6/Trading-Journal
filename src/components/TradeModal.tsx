@@ -9,6 +9,18 @@ import React, {
 } from 'react';
 import { useProfiles, useTrades } from '@/context/ProfileContext';
 import type { TradeDirection, TradeOutcome, Trade } from '@/types';
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  Trash2,
+  Edit2,
+  X,
+  Plus,
+  FileText,
+  Image as ImageIcon,
+  Trophy,
+  Activity
+} from 'lucide-react';
 
 /* ═══════════════════════════════════════════
    TradeModal – Day detail view + trade form
@@ -91,9 +103,9 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-button)] text-journal-text-secondary hover:bg-journal-text/6 transition-colors text-lg cursor-pointer"
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-journal-text-secondary hover:bg-neutral-100 transition-colors cursor-pointer"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -125,18 +137,22 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                           <span
                             className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-extrabold ${
                               trade.direction === 'Long'
-                                ? 'bg-profit-bg text-profit'
-                                : 'bg-loss-bg text-loss'
+                                ? 'bg-emerald-500/10 text-emerald-600'
+                                : 'bg-rose-500/10 text-rose-600'
                             }`}
                           >
-                            {trade.direction === 'Long' ? '↑' : '↓'}
+                            {trade.direction === 'Long' ? (
+                              <ArrowUpRight className="w-3.5 h-3.5" />
+                            ) : (
+                              <ArrowDownRight className="w-3.5 h-3.5" />
+                            )}
                           </span>
                           <span className="font-bold text-[0.95rem] font-mono">
                             {trade.pair}
                           </span>
                         </div>
                         <span
-                          className={`font-mono font-extrabold text-base ${trade.pnl >= 0 ? 'text-profit' : 'text-loss'}`}
+                          className={`font-mono font-extrabold text-base ${trade.pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
                         >
                           {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
                         </span>
@@ -203,17 +219,17 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                       <div className="self-end flex items-center gap-3">
                         {!deleteConfirmId && (
                           <button
-                            className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-journal-text hover:bg-border-light transition-colors"
+                            className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-journal-text hover:bg-neutral-100 transition-colors flex items-center gap-1"
                             onClick={() => setEditingTrade(trade)}
                           >
-                            ✏️ Edit
+                            <Edit2 className="w-3 h-3" /> Edit
                           </button>
                         )}
                         {deleteConfirmId === trade.id ? (
                           <div className="flex items-center gap-2 animate-fade-in">
-                            <span className="text-[0.7rem] font-bold text-loss">Delete this trade?</span>
+                            <span className="text-[0.7rem] font-bold text-rose-600">Delete this trade?</span>
                             <button
-                              className="text-[0.72rem] font-bold text-loss bg-loss-bg px-2.5 py-1 rounded-md cursor-pointer hover:bg-loss/20 transition-colors"
+                              className="text-[0.72rem] font-bold text-rose-600 bg-rose-500/10 px-2.5 py-1 rounded-md cursor-pointer hover:bg-rose-500/20 transition-colors"
                               onClick={() => {
                                 deleteTrade(trade.id);
                                 setDeleteConfirmId(null);
@@ -230,10 +246,10 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                           </div>
                         ) : (
                           <button
-                            className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-loss hover:bg-loss-bg transition-colors"
+                            className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-rose-600 hover:bg-rose-500/10 transition-colors flex items-center gap-1"
                             onClick={() => setDeleteConfirmId(trade.id)}
                           >
-                            🗑️ Delete
+                            <Trash2 className="w-3 h-3" /> Delete
                           </button>
                         )}
                       </div>
@@ -243,7 +259,7 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
               ) : (
                 /* Empty state */
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <span className="text-5xl mb-4 opacity-60">📝</span>
+                  <FileText className="w-12 h-12 text-neutral-400 mb-3" />
                   <p className="text-base font-bold text-journal-text">
                     No trades recorded for this day
                   </p>
@@ -277,10 +293,10 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
               className="max-w-[90%] max-h-[90%] rounded-[var(--radius-card)] shadow-modal object-contain"
             />
             <button
-              className="absolute top-5 right-5 w-10 h-10 rounded-full border-none bg-white/15 text-white text-xl cursor-pointer flex items-center justify-center hover:bg-white/30 transition-colors"
+              className="absolute top-5 right-5 w-10 h-10 rounded-full border-none bg-white/15 text-white cursor-pointer flex items-center justify-center hover:bg-white/30 transition-colors"
               onClick={() => setExpandedImage(null)}
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
           </div>
         )}
@@ -623,24 +639,24 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
         <button
           type="button"
           onClick={() => handleDirectionChange('Long')}
-          className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all ${
+          className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all flex items-center justify-center gap-1 ${
             direction === 'Long'
-              ? 'bg-profit-bg text-profit shadow-card'
+              ? 'bg-emerald-500/10 text-emerald-700 shadow-sm'
               : 'bg-transparent text-journal-text-secondary'
           }`}
         >
-          ↑ Long
+          <ArrowUpRight className="w-4 h-4" /> Long
         </button>
         <button
           type="button"
           onClick={() => handleDirectionChange('Short')}
-          className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all ${
+          className={`text-[0.85rem] font-bold py-2.5 border-none rounded-md cursor-pointer transition-all flex items-center justify-center gap-1 ${
             direction === 'Short'
-              ? 'bg-loss-bg text-loss shadow-card'
+              ? 'bg-rose-500/10 text-rose-700 shadow-sm'
               : 'bg-transparent text-journal-text-secondary'
           }`}
         >
-          ↓ Short
+          <ArrowDownRight className="w-4 h-4" /> Short
         </button>
       </div>
 
@@ -783,9 +799,9 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
               value={outcome}
               onChange={(e) => setOutcome(e.target.value as TradeOutcome)}
             >
-              <option value="Win">🏆 Win (hits TP)</option>
-              <option value="Loss">❌ Loss (hits SL)</option>
-              <option value="Breakeven">⚖️ Breakeven</option>
+              <option value="Win">Win (hits TP)</option>
+              <option value="Loss">Loss (hits SL)</option>
+              <option value="Breakeven">Breakeven</option>
             </select>
           </Field>
         </div>
@@ -793,17 +809,17 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
         {/* P&L preview */}
         {previewPnl !== null && (
           <div
-            className={`flex items-center justify-between px-4 py-3 rounded-[var(--radius-button)] animate-fade-in border ${
+            className={`flex items-center justify-between px-4 py-3 rounded-xl animate-fade-in border ${
               previewPnl >= 0
-                ? 'bg-profit-bg border-profit/20'
-                : 'bg-loss-bg border-loss/20'
+                ? 'bg-emerald-500/10 border-emerald-500/20'
+                : 'bg-rose-500/10 border-rose-500/20'
             }`}
           >
             <span className="text-[0.8rem] font-semibold text-journal-text-secondary">
               Estimated P&L ({outcome})
             </span>
             <span
-              className={`font-mono text-[1.1rem] font-extrabold ${previewPnl >= 0 ? 'text-profit' : 'text-loss'}`}
+              className={`font-mono text-[1.1rem] font-extrabold ${previewPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
             >
               {previewPnl >= 0 ? '+' : ''}${previewPnl.toFixed(2)}
             </span>
@@ -841,18 +857,18 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
               <button
                 type="button"
                 onClick={() => removeImage(i)}
-                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full border-none bg-black/60 text-white text-[0.65rem] cursor-pointer flex items-center justify-center hover:bg-loss/90 transition-colors"
+                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full border-none bg-black/60 text-white cursor-pointer flex items-center justify-center hover:bg-rose-600 transition-colors"
               >
-                ✕
+                <X className="w-3 h-3" />
               </button>
             </div>
           ))}
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="w-20 h-20 rounded-[var(--radius-button)] border-2 border-dashed border-border-medium bg-transparent flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-journal-text hover:bg-journal-bg transition-all"
+            className="w-20 h-20 rounded-xl border-2 border-dashed border-neutral-300 bg-transparent flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-journal-text hover:bg-journal-bg transition-all"
           >
-            <span className="text-xl">📷</span>
+            <ImageIcon className="w-5 h-5 text-neutral-400" />
             <span className="text-[0.6rem] font-semibold text-journal-text-muted">
               Add Image
             </span>

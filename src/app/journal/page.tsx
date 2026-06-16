@@ -5,6 +5,18 @@ import { useRouter } from 'next/navigation';
 import { useProfiles, useTrades, AVATARS } from '@/context/ProfileContext';
 import CalendarGrid from '@/components/CalendarGrid';
 import TradeModal from '@/components/TradeModal';
+import {
+  TrendingUp,
+  Target,
+  BarChart3,
+  Scale,
+  Users,
+  Flame,
+  Snowflake,
+  ChevronLeft,
+  ChevronRight,
+  Activity
+} from 'lucide-react';
 
 /* ═══════════════════════════════════════════
    Main Journal Page (Active Profile Context)
@@ -88,37 +100,37 @@ export default function JournalPage() {
   const cards = useMemo(() => {
     return [
       {
-        icon: '📊',
+        icon: BarChart3,
         label: 'Total Trades',
         value: metrics.totalTrades.toString(),
         color: '',
       },
       {
-        icon: '🎯',
+        icon: Target,
         label: 'Win Rate',
         value: `${metrics.winRate.toFixed(1)}%`,
         color:
           metrics.winRate >= 50
-            ? 'text-profit'
+            ? 'text-emerald-600'
             : metrics.winRate > 0
-              ? 'text-loss'
+              ? 'text-rose-600'
               : '',
       },
       {
-        icon: '💰',
+        icon: TrendingUp,
         label: 'Total P&L',
         value: `${metrics.totalPnl >= 0 ? '+' : ''}$${metrics.totalPnl.toFixed(2)}`,
-        color: metrics.totalPnl >= 0 ? 'text-profit' : 'text-loss',
+        color: metrics.totalPnl >= 0 ? 'text-emerald-600' : 'text-rose-600',
       },
       {
-        icon: '⚖️',
+        icon: Scale,
         label: 'Avg R:R',
         value: metrics.avgRiskReward.toFixed(2),
         color:
           metrics.avgRiskReward >= 1
-            ? 'text-profit'
+            ? 'text-emerald-600'
             : metrics.avgRiskReward > 0
-              ? 'text-breakeven'
+              ? 'text-amber-600'
               : '',
       },
     ];
@@ -135,21 +147,23 @@ export default function JournalPage() {
   return (
     <div className="min-h-screen max-w-[1100px] mx-auto px-6 pb-12 pt-6 max-md:px-4 max-sm:px-3 max-sm:pt-3 max-sm:pb-8 animate-fade-in">
       {/* ═══ App Header ═══ */}
-      <header className="flex items-center justify-between mb-8 pb-6 border-b border-border-light max-md:flex-col max-md:items-start max-md:gap-4 max-md:mb-6 max-md:pb-4">
+      <header className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-200/50 max-md:flex-col max-md:items-start max-md:gap-4 max-md:mb-6 max-md:pb-4">
         {/* Left Side: Logo & Active Profile Info */}
         <div className="flex items-center gap-4 max-md:w-full max-md:justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl leading-none">📈</span>
+          <div className="flex items-center gap-2.5">
+            <Activity className="w-5 h-5 text-neutral-800" />
             <h1 className="text-[1.4rem] font-black tracking-tight text-journal-text max-sm:text-[1.15rem]">
               Trading Journal
             </h1>
           </div>
           {/* Active Profile Pill */}
           <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border-medium select-none text-[0.82rem] font-bold"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-neutral-200/60 select-none text-[0.82rem] font-bold"
             style={{ backgroundColor: activeAvatar?.bg }}
           >
-            <span className="text-base leading-none">{activeAvatar?.emoji}</span>
+            <span className="w-5 h-5 rounded-full text-[0.65rem] font-black tracking-wider flex items-center justify-center select-none" style={{ backgroundColor: activeAvatar?.bg, color: activeAvatar?.color }}>
+              {activeAvatar?.initials}
+            </span>
             <span className="truncate max-w-[100px]" style={{ color: activeAvatar?.color }}>
               {activeProfile.name}
             </span>
@@ -164,7 +178,7 @@ export default function JournalPage() {
                 Profile P&L
               </span>
               <span
-                className={`font-mono text-[1.05rem] font-extrabold ${metrics.totalPnl >= 0 ? 'text-profit' : 'text-loss'}`}
+                className={`font-mono text-[1.05rem] font-extrabold ${metrics.totalPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
               >
                 {metrics.totalPnl >= 0 ? '+' : ''}${metrics.totalPnl.toFixed(2)}
               </span>
@@ -175,9 +189,10 @@ export default function JournalPage() {
               selectProfile(null);
               router.push('/');
             }}
-            className="text-[0.8rem] font-bold px-4 py-2 rounded-[var(--radius-button)] bg-journal-card border border-border-strong text-journal-text cursor-pointer hover:bg-journal-card-hover transition-all active:scale-[0.97]"
+            className="text-[0.8rem] font-bold px-4 py-2 rounded-xl bg-journal-card border border-neutral-200/60 text-journal-text cursor-pointer hover:-translate-y-0.5 hover:shadow-sm transition-all active:scale-[0.97] flex items-center gap-1.5"
           >
-            👥 Switch Profile
+            <Users className="w-3.5 h-3.5" />
+            Switch Profile
           </button>
         </div>
       </header>
@@ -186,34 +201,39 @@ export default function JournalPage() {
         {/* ═══ Dashboard Summary ═══ */}
         <section className="mb-2">
           <div className="grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1 max-sm:gap-2">
-            {cards.map((card, i) => (
-              <div
-                key={card.label}
-                className="bg-journal-card rounded-[var(--radius-card)] p-6 border border-border-light shadow-card animate-slide-up hover:-translate-y-0.5 hover:shadow-card-hover transition-all max-sm:p-4"
-                style={{ animationDelay: `${i * 80}ms` }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xl leading-none">{card.icon}</span>
-                  <span className="text-[0.8rem] font-bold uppercase tracking-wider text-journal-text-muted">
-                    {card.label}
-                  </span>
-                </div>
+            {cards.map((card, i) => {
+              const IconComponent = card.icon;
+              return (
                 <div
-                  className={`font-mono text-[1.6rem] font-bold tracking-tight ${card.color || 'text-journal-text'} max-sm:text-[1.35rem]`}
+                  key={card.label}
+                  className="bg-journal-card rounded-2xl p-6 border border-neutral-200/50 shadow-sm animate-slide-up hover:-translate-y-1 hover:shadow-md hover:border-neutral-300/80 transition-all duration-200 max-sm:p-4"
+                  style={{ animationDelay: `${i * 80}ms` }}
                 >
-                  {card.value}
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <IconComponent className="w-4 h-4 text-neutral-500" />
+                    <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider">
+                      {card.label}
+                    </span>
+                  </div>
+                  <div
+                    className={`font-mono text-3xl font-bold tracking-tight ${card.color || 'text-journal-text'} max-sm:text-2xl`}
+                  >
+                    {card.value}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Streak badge */}
           {metrics.currentStreak.type !== 'None' && metrics.currentStreak.count > 1 && (
-            <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-journal-card rounded-full border border-border-light animate-fade-in">
-              <span className="text-base">
-                {metrics.currentStreak.type === 'Win' ? '🔥' : '❄️'}
-              </span>
-              <span className="text-[0.85rem] font-semibold text-journal-text-secondary">
+            <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-journal-card rounded-full border border-neutral-200/50 shadow-sm animate-fade-in hover:shadow-md hover:border-neutral-300 transition-all duration-200">
+              {metrics.currentStreak.type === 'Win' ? (
+                <Flame className="w-4 h-4 text-orange-500 animate-pulse" />
+              ) : (
+                <Snowflake className="w-4 h-4 text-blue-500" />
+              )}
+              <span className="text-xs font-semibold text-neutral-600">
                 {metrics.currentStreak.count} {metrics.currentStreak.type} streak
               </span>
             </div>
@@ -222,10 +242,10 @@ export default function JournalPage() {
           {/* Equity Curve */}
           {metrics.equityCurve.length > 1 && (
             <div
-              className="mt-6 bg-journal-card rounded-[var(--radius-card)] border border-border-light shadow-card p-6 animate-slide-up max-sm:p-4"
+              className="mt-6 bg-journal-card rounded-2xl border border-neutral-200/50 shadow-sm p-6 animate-slide-up hover:shadow-md hover:border-neutral-300/80 transition-all duration-200 max-sm:p-4"
               style={{ animationDelay: '350ms' }}
             >
-              <h3 className="text-[0.95rem] font-bold text-journal-text mb-4">
+              <h3 className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-4">
                 Equity Curve
               </h3>
               <EquityCurve data={metrics.equityCurve} />
@@ -239,13 +259,13 @@ export default function JournalPage() {
           <div className="flex items-center justify-between mb-4 max-sm:flex-col max-sm:items-start max-sm:gap-2">
             <div className="flex items-center gap-1">
               <NavButton onClick={goPrev} label="Previous month">
-                ←
+                <ChevronLeft className="w-4 h-4" />
               </NavButton>
-              <h2 className="text-[1.2rem] font-extrabold min-w-[200px] text-center tracking-tight max-md:text-[1.05rem] max-md:min-w-[160px] max-sm:text-[0.95rem] max-sm:min-w-0">
+              <h2 className="text-lg font-bold min-w-[200px] text-center tracking-tight max-md:min-w-[160px] max-sm:text-base">
                 {MONTH_NAMES[month]} {year}
               </h2>
               <NavButton onClick={goNext} label="Next month">
-                →
+                <ChevronRight className="w-4 h-4" />
               </NavButton>
             </div>
 
@@ -253,7 +273,7 @@ export default function JournalPage() {
               {monthlyCount > 0 && (
                 <div className="flex items-center gap-2">
                   <span
-                    className={`font-mono text-[0.95rem] font-extrabold ${monthlyPnl >= 0 ? 'text-profit' : 'text-loss'}`}
+                    className={`font-mono text-sm font-bold ${monthlyPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
                   >
                     {monthlyPnl >= 0 ? '+' : ''}${monthlyPnl.toFixed(2)}
                   </span>
@@ -274,7 +294,7 @@ export default function JournalPage() {
           </div>
 
           {/* Calendar card */}
-          <div className="bg-journal-card rounded-[20px] p-6 border border-border-light shadow-card max-md:p-4 max-md:rounded-[var(--radius-card)] max-sm:p-2 max-sm:rounded-[var(--radius-button)]">
+          <div className="bg-journal-card rounded-2xl p-6 border border-neutral-200/50 shadow-sm hover:shadow-md hover:border-neutral-300/80 transition-all duration-300 max-md:p-4 max-sm:p-2">
             <CalendarGrid
               year={year}
               month={month}

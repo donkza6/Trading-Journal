@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProfiles, AVATARS } from '@/context/ProfileContext';
+import { Plus, UserPlus } from 'lucide-react';
 
 export default function ProfileSelection() {
   const { profiles, selectProfile, createProfile, isLoaded } = useProfiles();
@@ -58,10 +59,12 @@ export default function ProfileSelection() {
               >
                 {/* Avatar Box */}
                 <div
-                  className="w-32 h-32 max-sm:w-24 max-sm:h-24 rounded-2xl flex items-center justify-center text-5xl shadow-card transition-all duration-300 group-hover:scale-105 group-hover:shadow-card-hover border-4 border-transparent group-hover:border-journal-text active:scale-[0.98]"
+                  className="w-32 h-32 max-sm:w-24 max-sm:h-24 rounded-2xl flex items-center justify-center shadow-sm border border-neutral-200/50 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-md group-hover:border-journal-text active:scale-[0.98]"
                   style={{ backgroundColor: avatar.bg }}
                 >
-                  {avatar.emoji}
+                  <span className="font-black text-xl tracking-wider select-none" style={{ color: avatar.color }}>
+                    {avatar.initials}
+                  </span>
                 </div>
                 {/* Name */}
                 <span className="font-bold text-[0.95rem] text-journal-text-secondary group-hover:text-journal-text transition-colors truncate max-w-full">
@@ -77,10 +80,8 @@ export default function ProfileSelection() {
               className="group flex flex-col items-center gap-3 w-36 max-sm:w-28 cursor-pointer"
               onClick={() => setShowAddForm(true)}
             >
-              <div className="w-32 h-32 max-sm:w-24 max-sm:h-24 rounded-2xl bg-journal-card border-[3px] border-dashed border-journal-text-muted/40 flex flex-col items-center justify-center gap-1.5 transition-all duration-300 group-hover:scale-105 group-hover:border-journal-text group-hover:bg-journal-card/80 active:scale-[0.98]">
-                <span className="text-3xl text-journal-text-muted group-hover:text-journal-text transition-colors">
-                  +
-                </span>
+              <div className="w-32 h-32 max-sm:w-24 max-sm:h-24 rounded-2xl bg-journal-card border-2 border-dashed border-journal-text-muted/40 flex flex-col items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-journal-text group-hover:bg-journal-card/80 active:scale-[0.98]">
+                <Plus className="w-6 h-6 text-journal-text-muted group-hover:text-journal-text transition-colors" />
                 <span className="text-[0.68rem] font-bold text-journal-text-muted group-hover:text-journal-text uppercase tracking-wider transition-colors">
                   Add Profile
                 </span>
@@ -96,10 +97,13 @@ export default function ProfileSelection() {
         {showAddForm && (
           <form
             onSubmit={handleCreate}
-            className="mt-12 bg-journal-card rounded-[20px] p-6 border border-border-light shadow-card text-left flex flex-col gap-6 animate-scale-in max-sm:mt-8 max-sm:p-4"
+            className="mt-12 bg-journal-card rounded-2xl p-6 border border-neutral-200/50 shadow-sm text-left flex flex-col gap-6 animate-scale-in max-sm:mt-8 max-sm:p-4"
           >
             <div className="flex items-center justify-between border-b border-border-light pb-3">
-              <h3 className="text-lg font-black tracking-tight">Create Profile</h3>
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-journal-text-secondary" />
+                <h3 className="text-lg font-black tracking-tight">Create Profile</h3>
+              </div>
               <button
                 type="button"
                 className="text-journal-text-secondary text-sm font-semibold hover:text-journal-text cursor-pointer"
@@ -136,16 +140,16 @@ export default function ProfileSelection() {
                   <button
                     key={av.id}
                     type="button"
-                    className={`w-12 h-12 rounded-xl text-2xl flex items-center justify-center cursor-pointer transition-all border-2 ${
+                    className={`w-12 h-12 rounded-xl text-xs font-bold flex items-center justify-center cursor-pointer transition-all border-2 ${
                       selectedAvatarId === av.id
-                        ? 'border-journal-text scale-105 shadow-card'
+                        ? 'border-journal-text scale-105 shadow-sm'
                         : 'border-transparent hover:scale-102 hover:border-border-strong'
                     }`}
-                    style={{ backgroundColor: av.bg }}
+                    style={{ backgroundColor: av.bg, color: av.color }}
                     onClick={() => setSelectedAvatarId(av.id)}
                     aria-label={`Select avatar ${av.name}`}
                   >
-                    {av.emoji}
+                    {av.initials}
                   </button>
                 ))}
               </div>
