@@ -367,8 +367,10 @@ export function useTrades(profileId: string | null) {
     }
   }, []);
 
-  const dailyLogs = useMemo(() => buildDailyLogs(trades), [trades]);
-  const metrics = useMemo(() => buildMetrics(trades, dailyLogs), [trades, dailyLogs]);
+  // Only CLOSED trades feed into performance metrics, daily logs, calendar, and equity curve
+  const closedTrades = useMemo(() => trades.filter(t => t.status === 'CLOSED'), [trades]);
+  const dailyLogs = useMemo(() => buildDailyLogs(closedTrades), [closedTrades]);
+  const metrics = useMemo(() => buildMetrics(closedTrades, dailyLogs), [closedTrades, dailyLogs]);
 
   const getDayLog = useCallback(
     (date: string) => dailyLogs.get(date),

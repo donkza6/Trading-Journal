@@ -29,20 +29,23 @@ export default function DashboardSummary({ trades }: DashboardSummaryProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [pnlFilter, setPnlFilter] = useState<PnlFilter>('all');
 
+  // Defensive: only CLOSED trades should ever reach analytics
+  const closedTrades = useMemo(() => trades.filter(t => t.status === 'CLOSED'), [trades]);
+
   const assets = useMemo(() => {
-    const unique = [...new Set(trades.map((t) => t.pair))].sort();
+    const unique = [...new Set(closedTrades.map((t) => t.pair))].sort();
     return unique;
-  }, [trades]);
+  }, [closedTrades]);
 
   const filteredTrades = useMemo(() => {
-    return trades.filter((trade) => {
+    return closedTrades.filter((trade) => {
       if (assetFilter !== 'all' && trade.pair !== assetFilter) return false;
       if (typeFilter !== 'all' && trade.direction !== typeFilter) return false;
       if (pnlFilter === 'win' && trade.outcome !== 'Win') return false;
       if (pnlFilter === 'loss' && trade.outcome !== 'Loss') return false;
       return true;
     });
-  }, [trades, assetFilter, typeFilter, pnlFilter]);
+  }, [closedTrades, assetFilter, typeFilter, pnlFilter]);
 
   const metrics = useMemo(
     () => computeMetrics(filteredTrades),
@@ -175,7 +178,7 @@ export default function DashboardSummary({ trades }: DashboardSummaryProps) {
 
         {hasActiveFilters && (
           <span className="text-[0.72rem] font-semibold text-journal-text-muted ml-auto">
-            Showing {filteredTrades.length} of {trades.length} trades
+            Showing {filteredTrades.length} of {closedTrades.length} trades
           </span>
         )}
       </div>

@@ -161,7 +161,7 @@ export default function JournalPage() {
       </header>
 
       <main className="flex flex-col gap-6">
-        <DashboardSummary trades={trades} />
+        <DashboardSummary trades={trades.filter(t => t.status === 'CLOSED')} />
 
         <ActivePositions onRequestClose={handleRequestClose} />
 
