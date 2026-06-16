@@ -30,6 +30,37 @@ import {
    TradeModal – Day detail view + trade form
    ═══════════════════════════════════════════ */
 
+function getTradeImages(trade: Trade): string[] {
+  const urls: string[] = [];
+  if (trade.image_url) urls.push(trade.image_url);
+  if (trade.images?.length) {
+    for (const img of trade.images) {
+      if (img && !urls.includes(img)) urls.push(img);
+    }
+  }
+  return urls;
+}
+
+async function uploadTradeImage(file: File): Promise<string> {
+  const fileExt = file.name.split('.').pop() || 'png';
+  const uniqueId =
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  const fileName = `${uniqueId}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('trade-images')
+    .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+  if (uploadError) throw new Error(uploadError.message);
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('trade-images').getPublicUrl(fileName);
+  return publicUrl;
+}
+
 interface TradeModalProps {
   date: string;
   onClose: () => void;
@@ -42,6 +73,7 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [imageEditingTradeId, setImageEditingTradeId] = useState<string | null>(null);
 
   const dayLog = getDayLog(date);
   const trades = dayLog?.trades ?? [];
@@ -51,12 +83,13 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (expandedImage) setExpandedImage(null);
+        else if (imageEditingTradeId) setImageEditingTradeId(null);
         else if (editingTrade) setEditingTrade(null);
         else if (showForm) setShowForm(false);
         else onClose();
       }
     },
-    [onClose, showForm, editingTrade, expandedImage]
+    [onClose, showForm, editingTrade, expandedImage, imageEditingTradeId]
   );
 
   useEffect(() => {
@@ -129,7 +162,9 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
               {/* Trade list */}
               {trades.length > 0 ? (
                 <div className="flex flex-col gap-4">
-                  {trades.map((trade, i) => (
+                  {trades.map((trade, i) => {
+                    const tradeImages = getTradeImages(trade);
+                    return (
                     <div
                       key={trade.id}
                       className="bg-journal-elevated rounded-[var(--radius-button)] p-4 border border-border-light flex flex-col gap-2 animate-slide-up hover:shadow-card transition-shadow"
@@ -198,48 +233,60 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                         </p>
                       )}
 
-                      {/* Screenshot Preview */}
-                      {trade.image_url && (
-                        <div className="mt-2 mb-1">
-                          <button
-                            type="button"
-                            className="rounded-xl overflow-hidden border border-neutral-200 cursor-pointer hover:scale-[1.01] hover:shadow-sm transition-all p-0 bg-transparent block max-w-full aspect-[16/10] w-[180px]"
-                            onClick={() => setExpandedImage(trade.image_url!)}
-                          >
-                            <img
-                              src={trade.image_url}
-                              alt="Chart Screenshot"
-                              className="w-full h-full object-cover"
-                            />
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Legacy Base64 Images */}
-                      {trade.images && trade.images.length > 0 && (
-                        <div className="flex gap-2 flex-wrap mt-2">
-                          {trade.images.map((img, idx) => (
-                            <button
-                              key={idx}
-                              className="w-16 h-16 rounded-md overflow-hidden border border-border-light cursor-pointer hover:scale-105 transition-transform p-0 bg-transparent"
-                              onClick={() => setExpandedImage(img)}
+                      {/* Chart screenshots */}
+                      {imageEditingTradeId === trade.id ? (
+                        <TradeImageEditor
+                          trade={trade}
+                          onClose={() => setImageEditingTradeId(null)}
+                        />
+                      ) : (
+                        <>
+                          {tradeImages.length > 0 && (
+                            <div
+                              className={`mt-2 grid gap-2 ${
+                                tradeImages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+                              }`}
                             >
-                              <img
-                                src={img}
-                                alt={`Chart ${idx + 1}`}
-                                className="w-full h-full object-cover"
-                              />
-                            </button>
-                          ))}
-                        </div>
+                              {tradeImages.map((img, idx) => (
+                                <button
+                                  key={`${img}-${idx}`}
+                                  type="button"
+                                  className="rounded-xl overflow-hidden border border-neutral-200 cursor-pointer hover:scale-[1.01] hover:shadow-sm transition-all p-0 bg-transparent w-full aspect-[16/10]"
+                                  onClick={() => setExpandedImage(img)}
+                                >
+                                  <img
+                                    src={img}
+                                    alt={`Chart ${idx + 1}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
                       )}
 
                       {/* Actions (Edit & Delete) */}
-                      <div className="self-end flex items-center gap-3">
-                        {!deleteConfirmId && (
+                      <div className="self-end flex items-center gap-3 flex-wrap justify-end">
+                        {!deleteConfirmId && imageEditingTradeId !== trade.id && (
                           <button
                             className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-journal-text hover:bg-neutral-100 transition-colors flex items-center gap-1"
-                            onClick={() => setEditingTrade(trade)}
+                            onClick={() => {
+                              setDeleteConfirmId(null);
+                              setImageEditingTradeId(trade.id);
+                            }}
+                          >
+                            <ImagePlus className="w-3 h-3" />
+                            {tradeImages.length > 0 ? 'Edit Images' : 'Add Image'}
+                          </button>
+                        )}
+                        {!deleteConfirmId && imageEditingTradeId !== trade.id && (
+                          <button
+                            className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-journal-text hover:bg-neutral-100 transition-colors flex items-center gap-1"
+                            onClick={() => {
+                              setImageEditingTradeId(null);
+                              setEditingTrade(trade);
+                            }}
                           >
                             <Edit2 className="w-3 h-3" /> Edit
                           </button>
@@ -263,17 +310,21 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
                               No
                             </button>
                           </div>
-                        ) : (
+                        ) : imageEditingTradeId !== trade.id ? (
                           <button
                             className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-rose-600 hover:bg-rose-500/10 transition-colors flex items-center gap-1"
-                            onClick={() => setDeleteConfirmId(trade.id)}
+                            onClick={() => {
+                              setImageEditingTradeId(null);
+                              setDeleteConfirmId(trade.id);
+                            }}
                           >
                             <Trash2 className="w-3 h-3" /> Delete
                           </button>
-                        )}
+                        ) : null}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 /* Empty state */
@@ -320,6 +371,219 @@ export default function TradeModal({ date, onClose }: TradeModalProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   TradeImageEditor – Add / edit chart screenshots
+   ═══════════════════════════════════════════════ */
+
+interface TradeImageEditorProps {
+  trade: Trade;
+  onClose: () => void;
+}
+
+function TradeImageEditor({ trade, onClose }: TradeImageEditorProps) {
+  const { activeProfileId } = useProfiles();
+  const { updateTrade } = useTrades(activeProfileId);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [imageList, setImageList] = useState<string[]>(() => getTradeImages(trade));
+  const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const addFiles = (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (fileArray.length === 0) return;
+    setPendingFiles((prev) => [...prev, ...fileArray]);
+    setPendingPreviews((prev) => [
+      ...prev,
+      ...fileArray.map((f) => URL.createObjectURL(f)),
+    ]);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) addFiles(e.target.files);
+    e.target.value = '';
+  };
+
+  const removeSavedImage = (index: number) => {
+    setImageList((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removePendingImage = (index: number) => {
+    setPendingPreviews((prev) => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of pendingFiles) {
+        uploadedUrls.push(await uploadTradeImage(file));
+      }
+
+      const finalList = [...imageList, ...uploadedUrls];
+
+      await updateTrade(trade.id, {
+        pair: trade.pair,
+        direction: trade.direction,
+        entryPrice: trade.entryPrice,
+        exitPrice: trade.exitPrice,
+        positionSize: trade.positionSize,
+        profitLevel: trade.profitLevel,
+        stopLevel: trade.stopLevel,
+        riskReward: trade.riskReward,
+        notes: trade.notes,
+        image_url: finalList[0] || '',
+        images: finalList.slice(1),
+        createdAt: trade.createdAt,
+      });
+
+      onClose();
+    } catch (err) {
+      console.error('[TradeImageEditor] Save failed:', err);
+      alert('Failed to save images. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const allPreviews = [...imageList, ...pendingPreviews];
+
+  return (
+    <div className="mt-2 p-3 rounded-xl border border-border-light bg-journal-bg/50 flex flex-col gap-3 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary flex items-center gap-1.5">
+          <ImageIcon className="w-3.5 h-3.5" />
+          Chart Screenshots
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[0.72rem] font-semibold text-journal-text-muted bg-transparent border-none cursor-pointer px-2 py-1 rounded-md hover:text-journal-text hover:bg-neutral-100 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+
+      {allPreviews.length > 0 && (
+        <div
+          className={`grid gap-2 ${
+            allPreviews.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+          }`}
+        >
+          {imageList.map((img, idx) => (
+            <div
+              key={`saved-${img}-${idx}`}
+              className="relative rounded-xl overflow-hidden border border-neutral-200 aspect-[16/10] bg-neutral-50"
+            >
+              <img
+                src={img}
+                alt={`Chart ${idx + 1}`}
+                className="w-full h-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => removeSavedImage(idx)}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full border-none bg-black/60 text-white cursor-pointer flex items-center justify-center hover:bg-rose-600 transition-colors"
+                title="Remove image"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          {pendingPreviews.map((img, idx) => (
+            <div
+              key={`pending-${idx}`}
+              className="relative rounded-xl overflow-hidden border border-dashed border-neutral-300 aspect-[16/10] bg-neutral-50"
+            >
+              <img
+                src={img}
+                alt={`New chart ${idx + 1}`}
+                className="w-full h-full object-cover opacity-90"
+              />
+              <span className="absolute top-2 left-2 text-[0.6rem] font-bold uppercase tracking-wide bg-journal-text text-white px-1.5 py-0.5 rounded">
+                New
+              </span>
+              <button
+                type="button"
+                onClick={() => removePendingImage(idx)}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full border-none bg-black/60 text-white cursor-pointer flex items-center justify-center hover:bg-rose-600 transition-colors"
+                title="Remove image"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        onDragEnter={handleDrag}
+        onDragOver={handleDrag}
+        onDragLeave={handleDrag}
+        onDrop={handleDrop}
+        onClick={() => fileRef.current?.click()}
+        className={`w-full min-h-[100px] rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer p-4 text-center transition-all duration-200 ${
+          dragActive
+            ? 'border-journal-text bg-journal-bg/50'
+            : 'border-neutral-300 bg-transparent hover:border-neutral-400 hover:bg-neutral-50/50'
+        }`}
+      >
+        <Upload className="w-4 h-4 text-neutral-500" />
+        <p className="text-[0.72rem] font-semibold text-neutral-700">
+          Click or drag to add screenshot
+        </p>
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={handleFileChange}
+      />
+
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={saving}
+        className="self-end px-4 py-2 rounded-lg bg-journal-text text-journal-text-inverse font-semibold text-[0.78rem] cursor-pointer hover:bg-[#1a1616] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+      >
+        {saving ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Saving...
+          </>
+        ) : (
+          'Save Images'
+        )}
+      </button>
     </div>
   );
 }
@@ -618,32 +882,16 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
 
       // Upload file to Supabase Storage if new image selected
       if (selectedFile) {
-        const fileExt = selectedFile.name.split('.').pop() || 'png';
-        const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-        const fileName = `${uniqueId}.${fileExt}`;
-
-        const { data: uploadData, error: uploadError } = await supabase
-          .storage
-          .from('trade-images')
-          .upload(fileName, selectedFile, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (uploadError) {
-          console.error('[Supabase Storage] Upload error:', uploadError.message);
-          alert('Failed to upload chart image to storage: ' + uploadError.message);
+        try {
+          finalImageUrl = await uploadTradeImage(selectedFile);
+        } catch (uploadError) {
+          const message =
+            uploadError instanceof Error ? uploadError.message : 'Unknown upload error';
+          console.error('[Supabase Storage] Upload error:', message);
+          alert('Failed to upload chart image to storage: ' + message);
           setSaving(false);
           return;
         }
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase
-          .storage
-          .from('trade-images')
-          .getPublicUrl(fileName);
-
-        finalImageUrl = publicUrl;
       }
 
       const entryNum = parseFloat(entryPrice);
