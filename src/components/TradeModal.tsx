@@ -69,6 +69,29 @@ async function uploadTradeImage(file: File): Promise<string> {
   return publicUrl;
 }
 
+// Best-effort cleanup for partially uploaded files: remove by filename extracted from public URL
+async function deleteUploadedFilesByUrl(urls: string[]) {
+  if (!urls || urls.length === 0) return;
+  try {
+    const fileNames = urls
+      .map((u) => {
+        try {
+          const parts = u.split('/');
+          return parts[parts.length - 1];
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter((x): x is string => !!x);
+
+    if (fileNames.length === 0) return;
+    const { error } = await supabase.storage.from('trade-images').remove(fileNames);
+    if (error) console.warn('[Supabase] cleanup remove error:', error);
+  } catch (e) {
+    console.warn('[deleteUploadedFilesByUrl] cleanup failed', e);
+  }
+}
+
 interface TradeModalProps {
   date: string;
   onClose: () => void;
@@ -469,8 +492,19 @@ function TradeImageEditor({ trade, onClose }: TradeImageEditorProps) {
     setSaving(true);
     try {
       const uploadedUrls: string[] = [];
-      for (const file of pendingFiles) {
-        uploadedUrls.push(await uploadTradeImage(file));
+      try {
+        for (const file of pendingFiles) {
+          uploadedUrls.push(await uploadTradeImage(file));
+        }
+      } catch (uploadError) {
+        console.error('[TradeImageEditor] Upload error:', uploadError);
+        // cleanup any successfully uploaded files
+        try {
+          await deleteUploadedFilesByUrl(uploadedUrls);
+        } catch (cleanupErr) {
+          console.warn('[TradeImageEditor] cleanup failed', cleanupErr);
+        }
+        throw uploadError;
       }
 
       const finalList = [...imageList, ...uploadedUrls];
@@ -494,7 +528,7 @@ function TradeImageEditor({ trade, onClose }: TradeImageEditorProps) {
       onClose();
     } catch (err) {
       console.error('[TradeImageEditor] Save failed:', err);
-      alert('Failed to save images. Please try again.');
+      alert('Failed to save images. Please try again. ' + ((err as any)?.message || ''));
     } finally {
       setSaving(false);
     }
@@ -629,6 +663,7 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [pair, setPair] = useState(editingTrade?.pair ?? '');
+  const [recentPairs, setRecentPairs] = useState<string[]>([]);
   const [direction, setDirection] = useState<TradeDirection>(editingTrade?.direction ?? 'Long');
   const [entryPrice, setEntryPrice] = useState(editingTrade?.entryPrice ? editingTrade.entryPrice.toString() : '');
   const [tpPrice, setTpPrice] = useState(editingTrade?.profitLevel ? editingTrade.profitLevel.toString() : '');
@@ -709,21 +744,46 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Persist last used pair to localStorage so user doesn't retype it
+  // Recent pairs autosuggest (persist up to 20)
   useEffect(() => {
-    if (!editingTrade) {
-      try {
-        const last = localStorage.getItem('journal.lastPair');
-        if (last) setPair(last);
-      } catch (e) { }
+    try {
+      const raw = localStorage.getItem('journal.pairs');
+      if (raw) setRecentPairs(JSON.parse(raw));
+    } catch (e) { }
+    if (editingTrade && editingTrade.pair) setPair(editingTrade.pair);
+  }, [editingTrade]);
+
+  // reset / mode helpers
+  useEffect(() => {
+    if (editingTrade) {
+      setIsActiveEntry(editingTrade.status === 'OPEN');
+      if (editingTrade.exitPrice !== undefined && editingTrade.exitPrice !== null) {
+        setBreakevenPrice(String(editingTrade.exitPrice));
+      }
     }
   }, [editingTrade]);
 
-  useEffect(() => {
+  const setActiveMode = (active: boolean) => {
+    setIsActiveEntry(active);
+    // clear close-only fields when switching to active
+    if (active) {
+      setCloseExitPrice('');
+      setClosePnl('');
+    } else {
+      // when switching to closed, keep TP/SL but clear breakeven
+      setBreakevenPrice('');
+    }
+  };
+
+  const pushPairToHistory = (p: string) => {
     try {
-      if (pair) localStorage.setItem('journal.lastPair', pair);
+      const normalized = p.toUpperCase();
+      const current = Array.isArray(recentPairs) ? recentPairs : [];
+      const next = [normalized, ...current.filter((x) => x !== normalized)].slice(0, 20);
+      setRecentPairs(next);
+      localStorage.setItem('journal.pairs', JSON.stringify(next));
     } catch (e) { }
-  }, [pair]);
+  };
 
   // Helper to guess pip size
   const getPipSize = useCallback((entry: number) => {
@@ -959,6 +1019,12 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
         } catch (uploadError) {
           const message = uploadError instanceof Error ? uploadError.message : 'Unknown upload error';
           console.error('[Supabase Storage] Upload error:', message);
+          // cleanup any successfully uploaded files
+          try {
+            await deleteUploadedFilesByUrl(uploadedUrls);
+          } catch (e) {
+            console.warn('Cleanup failed after upload error', e);
+          }
           alert('Failed to upload chart image to storage: ' + message);
           setSaving(false);
           return;
@@ -1029,12 +1095,14 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
 
       if (editingTrade) {
         await updateTrade(editingTrade.id, tradeData);
+        pushPairToHistory(pair.toUpperCase());
         // If we computed pnlForSave manually for closing, update the row directly for pnl/outcome consistency
         if (status === 'CLOSED' && pnlForSave !== null) {
           // updateTrade already sets pnl/outcome when status is CLOSED
         }
       } else {
         await addTrade(tradeData);
+        pushPairToHistory(pair.toUpperCase());
       }
 
       onClose();
@@ -1076,13 +1144,13 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
           <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setIsActiveEntry(false)}
+              onClick={() => setActiveMode(false)}
               className={`px-3 py-1.5 rounded-md font-semibold ${!isActiveEntry ? 'bg-journal-text text-journal-text-inverse' : 'bg-transparent text-journal-text-muted'}`}>
               Log Closed Trade
             </button>
             <button
               type="button"
-              onClick={() => setIsActiveEntry(true)}
+              onClick={() => setActiveMode(true)}
               className={`px-3 py-1.5 rounded-md font-semibold ${isActiveEntry ? 'bg-emerald-50 text-emerald-700' : 'bg-transparent text-journal-text-muted'}`}>
               Enter Active Trade
             </button>
@@ -1140,10 +1208,16 @@ function TradeForm({ date, onClose, editingTrade }: TradeFormProps) {
               className={inputCls}
               type="text"
               placeholder="e.g. BTC/USDT, EUR/USD, AAPL"
+              list="pair-list"
               value={pair}
               onChange={(e) => setPair(e.target.value)}
               required
             />
+            <datalist id="pair-list">
+              {recentPairs.map((p) => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
           </Field>
 
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-3">
