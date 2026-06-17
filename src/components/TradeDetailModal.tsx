@@ -40,6 +40,14 @@ function resolveImageSrc(raw?: string | null) {
 export default function TradeDetailModal({ trade, onClose, onEdit, onClosePosition }: TradeDetailModalProps) {
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
+  const EMOTION_EMOJIS: Record<string, string> = {
+    Calm: '🥶',
+    FOMO: '😨',
+    Revenge: '😡',
+    Confident: '😎',
+    Neutral: '😐',
+  };
+
   const images = trade.images && trade.images.length > 0 ? trade.images : (trade.image_url ? [trade.image_url] : []);
 
   const exportCardToImage = async () => {
@@ -106,6 +114,11 @@ export default function TradeDetailModal({ trade, onClose, onEdit, onClosePositi
                 {trade.session && trade.session !== 'None' && (
                   <span className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md text-[10px] font-bold tracking-wider uppercase">
                     {trade.session}
+                  </span>
+                )}
+                {trade.emotion && (
+                  <span className="px-2 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-md text-[10px] font-bold tracking-wider uppercase flex items-center gap-1">
+                    <span className="text-[12px]">{EMOTION_EMOJIS[trade.emotion]}</span> {trade.emotion}
                   </span>
                 )}
                 {trade.status === 'OPEN' && (

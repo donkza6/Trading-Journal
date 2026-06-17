@@ -208,6 +208,7 @@ export function useTrades(profileId: string | null) {
           entryTime: t.entry_time || undefined,
           exitTime: t.exit_time || undefined,
           session: t.session || undefined,
+          emotion: t.emotion as any || undefined,
           status: (t.status as 'OPEN' | 'CLOSED' | 'PLAN') || 'CLOSED',
           createdAt: t.created_at,
         }))
@@ -280,6 +281,7 @@ export function useTrades(profileId: string | null) {
             entry_time: tradeInput.entryTime ?? null,
             exit_time: tradeInput.exitTime ?? null,
             session: tradeInput.session ?? null,
+            emotion: tradeInput.emotion ?? null,
             status: status ?? 'CLOSED',
             created_at: tradeInput.createdAt,
           },
@@ -330,6 +332,7 @@ export function useTrades(profileId: string | null) {
           entry_time: tradeInput.entryTime ?? null,
           exit_time: tradeInput.exitTime ?? null,
           session: tradeInput.session ?? null,
+          emotion: tradeInput.emotion ?? null,
           status: status ?? 'CLOSED',
           created_at: tradeInput.createdAt,
         })
@@ -378,6 +381,7 @@ export function useTrades(profileId: string | null) {
           entry_time: tradeInput.entryTime ?? null,
           exit_time: tradeInput.exitTime ?? null,
           session: tradeInput.session ?? null,
+          emotion: tradeInput.emotion ?? null,
           created_at: tradeInput.createdAt,
         };
       });

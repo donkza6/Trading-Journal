@@ -41,6 +41,7 @@ export interface Trade {
   entryTime?: string;
   exitTime?: string;
   session?: 'Asian' | 'London' | 'New York' | 'Overlap' | 'None';
+  emotion?: 'Calm' | 'FOMO' | 'Revenge' | 'Confident' | 'Neutral';
   status: 'OPEN' | 'CLOSED' | 'PLAN';
   createdAt: string;
 }

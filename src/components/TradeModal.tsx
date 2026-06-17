@@ -694,6 +694,7 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
   const [positionSize, setPositionSize] = useState(editingTrade?.positionSize ? editingTrade.positionSize.toString() : '');
   const [riskReward, setRiskReward] = useState(editingTrade?.riskReward ? editingTrade.riskReward.toString() : '');
   const [outcome, setOutcome] = useState<TradeOutcome>(editingTrade?.outcome ?? 'Win');
+  const [emotion, setEmotion] = useState<Trade['emotion']>(editingTrade?.emotion ?? 'Neutral');
   const [notes, setNotes] = useState(editingTrade?.notes ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -1160,7 +1161,8 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
         news_event: newsEvent,
         entryTime: entryTime || undefined,
         exitTime: exitTime || undefined,
-        session: session,
+        session: session || undefined,
+        emotion: emotion || undefined,
         createdAt: date + 'T12:00:00',
         status,
       };
@@ -1353,6 +1355,31 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
                   }`}
                 >
                   {s}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Emotion / Psychology">
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { label: '🥶 Calm', value: 'Calm' },
+                { label: '😨 FOMO', value: 'FOMO' },
+                { label: '😡 Revenge', value: 'Revenge' },
+                { label: '😎 Confident', value: 'Confident' },
+                { label: '😐 Neutral', value: 'Neutral' }
+              ].map((emo) => (
+                <button
+                  key={emo.value}
+                  type="button"
+                  onClick={() => setEmotion(emo.value as any)}
+                  className={`px-3 py-1.5 rounded-md text-[0.8rem] font-bold border transition-all ${
+                    emotion === emo.value
+                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
+                      : 'bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                  }`}
+                >
+                  {emo.label}
                 </button>
               ))}
             </div>

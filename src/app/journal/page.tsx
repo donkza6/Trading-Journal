@@ -16,7 +16,10 @@ import {
   ChevronRight,
   Activity,
   Wallet,
+  Download,
 } from 'lucide-react';
+import Papa from 'papaparse';
+import { toast } from 'sonner';
 
 /* ═══════════════════════════════════════════
    Main Journal Page (Active Profile Context)
@@ -57,6 +60,40 @@ export default function JournalPage() {
     }
     return closed;
   }, [trades, sessionFilter]);
+
+  const exportToCSV = () => {
+    if (dashboardTrades.length === 0) {
+      toast.error('No closed trades to export.');
+      return;
+    }
+
+    const exportData = dashboardTrades.map(trade => ({
+      Date: new Date(trade.createdAt).toISOString().split('T')[0],
+      Pair: trade.pair,
+      Direction: trade.direction,
+      Status: trade.status,
+      'Entry Price': trade.entryPrice,
+      'Exit Price': trade.exitPrice || '',
+      Size: trade.positionSize,
+      'P&L': trade.pnl || '',
+      Session: trade.session || '',
+      Emotion: trade.emotion || '',
+      Notes: trade.notes || '',
+    }));
+
+    const csv = Papa.unparse(exportData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${activeProfile?.name?.replace(/\s+/g, '_') || 'Profile'}_TradingJournal_Export.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success('CSV Exported successfully!');
+  };
 
   const goPrev = () => {
     if (month === 0) {
@@ -193,6 +230,13 @@ export default function JournalPage() {
             title="Open Portfolio Wallet"
           >
             <Wallet className="w-4 h-4" /> Wallet
+          </button>
+          <button
+            onClick={exportToCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-transparent text-journal-text-muted border border-neutral-200/60 hover:bg-neutral-100 hover:text-neutral-900 hover:border-neutral-300 transition-colors text-[0.8rem] font-bold active:scale-95"
+            title="Export trades to CSV"
+          >
+            <Download className="w-4 h-4" /> Export CSV
           </button>
           <DataManagement />
           <button
