@@ -7,9 +7,10 @@ import { X, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 interface ActivePositionsProps {
        onRequestClose?: (trade: Trade) => void;
+       onView?: (trade: Trade) => void;
 }
 
-export default function ActivePositions({ onRequestClose }: ActivePositionsProps) {
+export default function ActivePositions({ onRequestClose, onView }: ActivePositionsProps) {
        const { activeProfileId } = useProfiles();
        const { trades } = useTrades(activeProfileId);
        const openTrades = trades.filter((t) => t.status === 'OPEN');
@@ -25,7 +26,11 @@ export default function ActivePositions({ onRequestClose }: ActivePositionsProps
 
                      <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
                             {openTrades.map((trade) => (
-                                   <div key={trade.id} className="bg-journal-card p-4 rounded-2xl border border-neutral-200/50 shadow-sm hover:shadow-md transition-all">
+                                   <div 
+                                          key={trade.id} 
+                                          onClick={() => onView && onView(trade)}
+                                          className="bg-journal-card p-4 rounded-2xl border border-neutral-200/50 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group"
+                                   >
                                           <div className="flex items-start justify-between gap-3">
                                                  <div>
                                                         <div className="flex items-center gap-2">
@@ -46,7 +51,7 @@ export default function ActivePositions({ onRequestClose }: ActivePositionsProps
 
                                                  <div className="flex flex-col items-end gap-2">
                                                         <button
-                                                               onClick={() => onRequestClose && onRequestClose(trade)}
+                                                               onClick={(e) => { e.stopPropagation(); onRequestClose && onRequestClose(trade); }}
                                                                className="text-[0.85rem] font-bold px-3 py-2 rounded-lg bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 transition-all"
                                                         >
                                                                Close Position

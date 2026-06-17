@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useProfiles, useTrades, AVATARS } from '@/context/ProfileContext';
 import CalendarGrid from '@/components/CalendarGrid';
 import TradeModal from '@/components/TradeModal';
+import TradeDetailModal from '@/components/TradeDetailModal';
 import DashboardSummary from '@/components/DashboardSummary';
 import DataManagement from '@/components/DataManagement';
 import ActivePositions from '@/components/ActivePositions';
@@ -42,6 +43,8 @@ export default function JournalPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [modalTrade, setModalTrade] = useState<any | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailTrade, setDetailTrade] = useState<any | null>(null);
   const [sessionFilter, setSessionFilter] = useState<'All' | 'Asian' | 'London' | 'New York' | 'Overlap' | 'None'>('All');
 
   const dashboardTrades = useMemo(() => {
@@ -96,10 +99,29 @@ export default function JournalPage() {
     setModalTrade(trade);
     setShowModal(true);
   };
+  const handleViewTrade = (trade: any) => {
+    setDetailTrade(trade);
+    setShowDetailModal(true);
+  };
   const closeModal = () => {
     setShowModal(false);
     setSelectedDate(null);
     setModalTrade(null);
+  };
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setDetailTrade(null);
+  };
+  const handleDetailEdit = (trade: any) => {
+    closeDetailModal();
+    const d = trade.createdAt ? trade.createdAt.split('T')[0] : new Date().toISOString().split('T')[0];
+    setSelectedDate(d);
+    setModalTrade(trade);
+    setShowModal(true);
+  };
+  const handleDetailClosePosition = (trade: any) => {
+    closeDetailModal();
+    handleRequestClose(trade);
   };
 
   const activeAvatar = useMemo(() => {
@@ -190,7 +212,7 @@ export default function JournalPage() {
         </div>
         <DashboardSummary trades={dashboardTrades} />
 
-        <ActivePositions onRequestClose={handleRequestClose} />
+        <ActivePositions onRequestClose={handleRequestClose} onView={handleViewTrade} />
 
         {/* ═══ Calendar Section ═══ */}
         <section className="animate-fade-in" style={{ animationDelay: '200ms' }}>
@@ -244,6 +266,14 @@ export default function JournalPage() {
 
       {showModal && selectedDate && (
         <TradeModal date={selectedDate} onClose={closeModal} initialTrade={modalTrade} />
+      )}
+      {showDetailModal && detailTrade && (
+        <TradeDetailModal 
+          trade={detailTrade} 
+          onClose={closeDetailModal} 
+          onEdit={handleDetailEdit} 
+          onClosePosition={handleDetailClosePosition} 
+        />
       )}
     </div>
   );
