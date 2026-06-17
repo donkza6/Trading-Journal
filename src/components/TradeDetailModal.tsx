@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import type { Trade } from '@/types';
-import { X, ArrowUpRight, ArrowDownRight, Edit2, Target, Calendar, Clock, AlertTriangle } from 'lucide-react';
+import { X, ArrowUpRight, ArrowDownRight, Edit2, Target, Calendar, Clock, AlertTriangle, Share } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+import html2canvas from 'html2canvas';
 
 interface TradeDetailModalProps {
   trade: Trade;
@@ -40,10 +42,57 @@ export default function TradeDetailModal({ trade, onClose, onEdit, onClosePositi
 
   const images = trade.images && trade.images.length > 0 ? trade.images : (trade.image_url ? [trade.image_url] : []);
 
+  const exportCardToImage = async () => {
+    const el = document.getElementById('trade-card-export');
+    if (!el) return;
+
+    // Temporarily remove constraints to capture the full content if it scrolls
+    const originalMaxHeight = el.style.maxHeight;
+    const originalOverflow = el.style.overflow;
+    el.style.maxHeight = 'none';
+    el.style.overflow = 'visible';
+
+    const bodyEl = document.getElementById('trade-card-body');
+    let originalBodyOverflow = '';
+    if (bodyEl) {
+      originalBodyOverflow = bodyEl.style.overflow;
+      bodyEl.style.overflow = 'visible';
+    }
+
+    // Small delay to ensure styles apply
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    try {
+      const canvas = await html2canvas(el, {
+        backgroundColor: document.documentElement.classList.contains('dark') ? '#0a0a0a' : '#f5f5f5',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+      });
+
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `${trade.pair}-Setup-${new Date(trade.createdAt).toISOString().split('T')[0]}.png`;
+      link.href = dataUrl;
+      link.click();
+
+      toast.success('Trade card exported to image!');
+    } catch (error) {
+      console.error('Failed to export image:', error);
+      toast.error('Failed to export image. Please try again.');
+    } finally {
+      el.style.maxHeight = originalMaxHeight;
+      el.style.overflow = originalOverflow;
+      if (bodyEl) {
+        bodyEl.style.overflow = originalBodyOverflow;
+      }
+    }
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 max-sm:p-2 sm:p-6 bg-black/40 backdrop-blur-sm animate-fade-in overflow-hidden">
-        <div className="relative bg-journal-bg w-full max-w-2xl max-h-[90vh] flex flex-col rounded-[calc(var(--radius-panel)*1.2)] shadow-modal overflow-hidden transform transition-all duration-300 scale-100 border border-neutral-200/60 dark:border-neutral-800">
+        <div id="trade-card-export" className="relative bg-journal-bg w-full max-w-2xl max-h-[90vh] flex flex-col rounded-[calc(var(--radius-panel)*1.2)] shadow-modal overflow-hidden transform transition-all duration-300 scale-100 border border-neutral-200/60 dark:border-neutral-800">
           
           {/* Header */}
           <div className="shrink-0 flex items-center justify-between px-6 py-5 border-b border-border-light bg-journal-card max-sm:px-4">
@@ -66,16 +115,25 @@ export default function TradeDetailModal({ trade, onClose, onEdit, onClosePositi
                 )}
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2" data-html2canvas-ignore="true">
+              <button
+                onClick={exportCardToImage}
+                className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
+                title="Export as Image"
+              >
+                <Share className="w-5 h-5" />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-6 max-sm:p-4 flex flex-col gap-6">
+          <div id="trade-card-body" className="flex-1 overflow-y-auto p-6 max-sm:p-4 flex flex-col gap-6">
             
             {/* The Levels Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-[0.85rem] border border-neutral-200/60 dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
@@ -141,7 +199,7 @@ export default function TradeDetailModal({ trade, onClose, onEdit, onClosePositi
           </div>
 
           {/* Footer Actions */}
-          <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-border-light bg-journal-card max-sm:px-4">
+          <div data-html2canvas-ignore="true" className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-border-light bg-journal-card max-sm:px-4">
             <button
               onClick={() => onEdit(trade)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[0.875rem] font-bold text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"

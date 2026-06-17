@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import type { Trade } from '@/types';
+import { useProfiles } from '@/context/ProfileContext';
 import { computeMetrics } from '@/lib/metrics';
 import EquityCurveChart from '@/components/EquityCurveChart';
 import {
@@ -25,6 +26,9 @@ interface DashboardSummaryProps {
 }
 
 export default function DashboardSummary({ trades }: DashboardSummaryProps) {
+  const { activeProfile } = useProfiles();
+  const isCent = activeProfile?.accountCurrency === 'CENT';
+
   const [assetFilter, setAssetFilter] = useState<AssetFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [pnlFilter, setPnlFilter] = useState<PnlFilter>('all');
@@ -112,7 +116,8 @@ export default function DashboardSummary({ trades }: DashboardSummaryProps) {
     {
       icon: TrendingUp,
       label: 'Total P&L',
-      value: `${metrics.totalPnl >= 0 ? '+' : ''}$${metrics.totalPnl.toFixed(2)}`,
+      badge: isCent ? 'CENT' : undefined,
+      value: `${metrics.totalPnl >= 0 ? '+' : ''}$${Math.abs(metrics.totalPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       color: metrics.totalPnl >= 0 ? 'text-emerald-600' : 'text-rose-600',
     },
     {
@@ -195,9 +200,16 @@ export default function DashboardSummary({ trades }: DashboardSummaryProps) {
             >
               <div className="flex items-center gap-2 mb-2.5">
                 <IconComponent className="w-4 h-4 text-neutral-500" />
-                <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider">
-                  {card.label}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider">
+                    {card.label}
+                  </span>
+                  {card.badge && (
+                    <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded text-[0.6rem] font-bold uppercase tracking-wider">
+                      {card.badge}
+                    </span>
+                  )}
+                </div>
               </div>
               <div
                 className={`font-mono text-3xl font-bold tracking-tight ${card.color || 'text-journal-text'} max-sm:text-2xl`}

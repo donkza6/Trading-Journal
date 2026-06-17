@@ -35,6 +35,7 @@ interface ProfileContextValue {
   activeProfileId: string | null;
   selectProfile: (id: string | null) => void;
   createProfile: (name: string, avatarUrl: string) => Promise<void>;
+  updateProfileCurrency: (id: string, currency: 'USD' | 'CENT') => Promise<void>;
   isLoaded: boolean;
 }
 
@@ -60,6 +61,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           id: p.id,
           name: p.name,
           avatarUrl: p.avatar_url,
+          accountCurrency: p.account_currency || 'USD',
           createdAt: p.created_at,
         }))
       );
@@ -102,16 +104,38 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const createProfile = useCallback(async (name: string, avatarUrl: string) => {
-    const { error } = await supabase
+  const createProfile = async (name: string, avatarUrl: string) => {
+    const { data, error } = await supabase
       .from('profiles')
-      .insert([{ name, avatar_url: avatarUrl }]);
+      .insert({ name, avatar_url: avatarUrl })
+      .select()
+      .single();
 
     if (error) {
-      console.error('[Supabase] Error creating profile:', error.message, error.details, error.hint);
+      console.error('[Supabase] Error creating profile:', error.message);
       throw error;
     }
-  }, []);
+
+    if (data) {
+      setActiveProfileId(data.id);
+      localStorage.setItem('trading-journal-active-profile-id', data.id);
+      await fetchProfiles();
+    }
+  };
+
+  const updateProfileCurrency = async (id: string, currency: 'USD' | 'CENT') => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ account_currency: currency })
+      .eq('id', id);
+
+    if (error) {
+      console.error('[Supabase] Error updating profile currency:', error.message);
+      throw error;
+    }
+
+    await fetchProfiles();
+  };
 
   const activeProfile = useMemo(() => {
     return profiles.find((p) => p.id === activeProfileId) || null;
@@ -124,9 +148,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       activeProfileId,
       selectProfile,
       createProfile,
+      updateProfileCurrency,
       isLoaded,
     }),
-    [profiles, activeProfile, activeProfileId, selectProfile, createProfile, isLoaded]
+    [profiles, activeProfile, activeProfileId, selectProfile, createProfile, updateProfileCurrency, isLoaded]
   );
 
   return (
@@ -399,5 +424,109 @@ export function useTrades(profileId: string | null) {
     bulkImportTrades,
     deleteTrade,
     getDayLog,
+  };
+}
+
+/* ═══════════════════════════════════════════
+   Wallet Hook
+   ═══════════════════════════════════════════ */
+
+export function useWallet(profileId: string | null) {
+  const [transactions, setTransactions] = useState<import('@/types').FundingTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchTransactions = useCallback(async () => {
+    if (!profileId) {
+      setTransactions([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('funding_transactions')
+      .select('*')
+      .eq('profile_id', profileId)
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('[Supabase] Error fetching wallet:', error.message);
+    } else if (data) {
+      setTransactions(
+        data.map((t) => ({
+          id: t.id,
+          profileId: t.profile_id,
+          type: t.type as 'DEPOSIT' | 'WITHDRAWAL',
+          amount: Number(t.amount),
+          date: t.date,
+          notes: t.notes,
+        }))
+      );
+    }
+    setLoading(false);
+  }, [profileId]);
+
+  useEffect(() => {
+    fetchTransactions();
+
+    if (!profileId) return;
+
+    const channel = supabase
+      .channel('realtime_funding_' + profileId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'funding_transactions', filter: `profile_id=eq.${profileId}` },
+        () => fetchTransactions()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchTransactions, profileId]);
+
+  const addTransaction = useCallback(async (type: 'DEPOSIT' | 'WITHDRAWAL', amount: number, notes?: string) => {
+    if (!profileId) return;
+    const { error } = await supabase.from('funding_transactions').insert({
+      profile_id: profileId,
+      type,
+      amount,
+      notes,
+    });
+    if (error) {
+      console.error('[Supabase] Error adding transaction:', error.message);
+      throw error;
+    }
+  }, [profileId]);
+
+  const deleteTransaction = useCallback(async (id: string) => {
+    const { error } = await supabase.from('funding_transactions').delete().eq('id', id);
+    if (error) {
+      console.error('[Supabase] Error deleting transaction:', error.message);
+      throw error;
+    }
+  }, []);
+
+  const { totalDeposits, totalWithdrawals, netFunding } = useMemo(() => {
+    let dep = 0;
+    let wit = 0;
+    transactions.forEach(t => {
+      if (t.type === 'DEPOSIT') dep += t.amount;
+      if (t.type === 'WITHDRAWAL') wit += t.amount;
+    });
+    return {
+      totalDeposits: dep,
+      totalWithdrawals: wit,
+      netFunding: dep - wit,
+    };
+  }, [transactions]);
+
+  return {
+    transactions,
+    loading,
+    totalDeposits,
+    totalWithdrawals,
+    netFunding,
+    addTransaction,
+    deleteTransaction,
   };
 }

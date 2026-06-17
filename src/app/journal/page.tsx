@@ -6,6 +6,7 @@ import { useProfiles, useTrades, AVATARS } from '@/context/ProfileContext';
 import CalendarGrid from '@/components/CalendarGrid';
 import TradeModal from '@/components/TradeModal';
 import TradeDetailModal from '@/components/TradeDetailModal';
+import WalletModal from '@/components/WalletModal';
 import DashboardSummary from '@/components/DashboardSummary';
 import DataManagement from '@/components/DataManagement';
 import ActivePositions from '@/components/ActivePositions';
@@ -14,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  Wallet,
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════
@@ -45,6 +47,7 @@ export default function JournalPage() {
   const [modalTrade, setModalTrade] = useState<any | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailTrade, setDetailTrade] = useState<any | null>(null);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const [sessionFilter, setSessionFilter] = useState<'All' | 'Asian' | 'London' | 'New York' | 'Overlap' | 'None'>('All');
 
   const dashboardTrades = useMemo(() => {
@@ -167,16 +170,30 @@ export default function JournalPage() {
         <div className="flex items-center gap-3 max-md:w-full max-md:justify-between max-md:flex-wrap">
           {metrics.totalTrades > 0 && (
             <div className="flex flex-col items-end gap-0.5 max-md:items-start">
-              <span className="text-[0.68rem] font-semibold uppercase tracking-wider text-journal-text-muted">
-                Profile P&L
-              </span>
+              <div className="flex items-center gap-2">
+                {activeProfile?.accountCurrency === 'CENT' && (
+                  <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded text-[0.6rem] font-bold uppercase tracking-wider">
+                    CENT
+                  </span>
+                )}
+                <span className="text-[0.68rem] font-semibold uppercase tracking-wider text-journal-text-muted">
+                  Profile P&L
+                </span>
+              </div>
               <span
                 className={`font-mono text-[1.05rem] font-extrabold ${metrics.totalPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
               >
-                {metrics.totalPnl >= 0 ? '+' : ''}${metrics.totalPnl.toFixed(2)}
+                {metrics.totalPnl >= 0 ? '+' : ''}${Math.abs(metrics.totalPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           )}
+          <button
+            onClick={() => setShowWalletModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-[0.8rem] font-bold hover:bg-neutral-800 transition-colors shadow-sm active:scale-95"
+            title="Open Portfolio Wallet"
+          >
+            <Wallet className="w-4 h-4" /> Wallet
+          </button>
           <DataManagement />
           <button
             onClick={() => {
@@ -273,6 +290,12 @@ export default function JournalPage() {
           onClose={closeDetailModal} 
           onEdit={handleDetailEdit} 
           onClosePosition={handleDetailClosePosition} 
+        />
+      )}
+      {showWalletModal && (
+        <WalletModal 
+          onClose={() => setShowWalletModal(false)} 
+          totalRealizedPnl={metrics.totalPnl} 
         />
       )}
     </div>

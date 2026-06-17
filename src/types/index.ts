@@ -6,7 +6,17 @@ export interface Profile {
   id: string;
   name: string;
   avatarUrl: string; // Identifier for predefined avatars (e.g. "avatar-1", "avatar-2", etc.)
+  accountCurrency?: 'USD' | 'CENT';
   createdAt: string;
+}
+
+export interface FundingTransaction {
+  id: string;
+  profileId: string;
+  type: 'DEPOSIT' | 'WITHDRAWAL';
+  amount: number;
+  date: string;
+  notes?: string;
 }
 
 // ── Single Trade Entry ──
