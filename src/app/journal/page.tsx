@@ -17,7 +17,9 @@ import {
   Activity,
   Wallet,
   Download,
+  LogOut,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import Papa from 'papaparse';
 import { toast } from 'sonner';
 
@@ -240,14 +242,15 @@ export default function JournalPage() {
           </button>
           <DataManagement />
           <button
-            onClick={() => {
-              selectProfile(null);
-              router.push('/');
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/login');
             }}
             className="text-[0.8rem] font-bold px-4 py-2 rounded-xl bg-journal-card border border-neutral-200/60 text-journal-text cursor-pointer hover:-translate-y-0.5 hover:shadow-sm transition-all active:scale-[0.97] flex items-center gap-1.5"
+            title="Log Out"
           >
-            <Users className="w-3.5 h-3.5" />
-            Switch Profile
+            <LogOut className="w-3.5 h-3.5" />
+            Log Out
           </button>
         </div>
       </header>

@@ -9,7 +9,8 @@ import React, {
   useMemo,
   type ReactNode,
 } from 'react';
-import type { Profile, Trade } from '@/types';
+import { useRouter, usePathname } from 'next/navigation';
+import type { Profile, Trade, FundingTransaction } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { buildDailyLogs, buildMetrics } from '@/lib/metrics';
 
@@ -42,15 +43,50 @@ interface ProfileContextValue {
 const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [session, setSession] = useState<any>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user?.id) {
+        setActiveProfileId(session.user.id);
+      }
+      setAuthChecked(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session?.user?.id) {
+        setActiveProfileId(session.user.id);
+      } else {
+        setActiveProfileId(null);
+        setProfiles([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (authChecked && !session && pathname !== '/login') {
+      router.replace('/login');
+    }
+  }, [authChecked, session, pathname, router]);
 
   // Sync profiles from Supabase and listen for realtime updates
   const fetchProfiles = useCallback(async () => {
+    if (!session?.user?.id) return;
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
+      .eq('id', session.user.id)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -67,16 +103,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       );
     }
     setIsLoaded(true);
-  }, []);
+  }, [session]);
 
   useEffect(() => {
+    if (!session?.user?.id) return;
+    
     fetchProfiles();
-
-    // Load active profile from localStorage if any
-    const savedActiveId = localStorage.getItem('trading-journal-active-profile-id');
-    if (savedActiveId) {
-      setActiveProfileId(savedActiveId);
-    }
 
     // Subscribe to realtime profiles updates
     const channel = supabase
@@ -93,15 +125,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchProfiles]);
+  }, [session, fetchProfiles]);
 
   const selectProfile = useCallback((id: string | null) => {
+    // No longer functional in SaaS mode, the profile is rigidly tied to the user
     setActiveProfileId(id);
-    if (id) {
-      localStorage.setItem('trading-journal-active-profile-id', id);
-    } else {
-      localStorage.removeItem('trading-journal-active-profile-id');
-    }
   }, []);
 
   const createProfile = async (name: string, avatarUrl: string) => {
@@ -118,7 +146,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
     if (data) {
       setActiveProfileId(data.id);
-      localStorage.setItem('trading-journal-active-profile-id', data.id);
       await fetchProfiles();
     }
   };
