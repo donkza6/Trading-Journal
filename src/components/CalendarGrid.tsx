@@ -125,17 +125,17 @@ function DayCell({
 
   if (hasTrades && pnl !== null) {
     if (pnl > 0.01) {
-      bgClass = 'bg-emerald-500/10';
-      borderClass = 'border-emerald-500/20';
-      pnlColor = 'text-emerald-700 font-bold';
+      bgClass = 'bg-emerald-50 dark:bg-emerald-900/20';
+      borderClass = 'border-emerald-200 dark:border-emerald-800/50';
+      pnlColor = 'text-emerald-600 dark:text-emerald-400 font-bold';
     } else if (pnl < -0.01) {
-      bgClass = 'bg-rose-500/10';
-      borderClass = 'border-rose-500/20';
-      pnlColor = 'text-rose-700 font-bold';
+      bgClass = 'bg-rose-50 dark:bg-rose-900/20';
+      borderClass = 'border-rose-200 dark:border-rose-800/50';
+      pnlColor = 'text-rose-600 dark:text-rose-400 font-bold';
     } else {
-      bgClass = 'bg-amber-500/10';
-      borderClass = 'border-amber-500/20';
-      pnlColor = 'text-amber-700 font-bold';
+      bgClass = 'bg-amber-50 dark:bg-amber-900/20';
+      borderClass = 'border-amber-200 dark:border-amber-800/50';
+      pnlColor = 'text-amber-600 dark:text-amber-400 font-bold';
     }
   }
 
@@ -187,10 +187,9 @@ function DayCell({
       {/* P&L display */}
       {hasTrades && pnl !== null && (
         <span
-          className={`font-mono text-[0.68rem] tracking-tight max-md:text-[0.6rem] max-sm:text-[0.55rem] ${pnlColor}`}
+          className={`font-mono text-[10px] tracking-tight max-md:text-[9px] max-sm:text-[8px] ${pnlColor}`}
         >
-          {pnl >= 0 ? '+' : ''}
-          {pnl.toFixed(0)}
+          {pnl >= 0 ? '+$' : '-$'}{Math.abs(pnl).toFixed(2)}
         </span>
       )}
 

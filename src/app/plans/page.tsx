@@ -128,7 +128,7 @@ export default function PlansPage() {
 				) : (
                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                           {plans.map((p) => (
-                                                 <div key={p.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col gap-4">
+                                                 <div key={p.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col gap-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-fade-in group">
                                                         {/* Header: Direction pill + Asset name */}
                                                         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                                                                <div className="flex items-center gap-3">

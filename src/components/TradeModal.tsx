@@ -725,6 +725,8 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
   const [entryTime, setEntryTime] = useState(editingTrade?.entryTime ?? '');
   const [exitTime, setExitTime] = useState(editingTrade?.exitTime ?? '');
   const [session, setSession] = useState<'Asian' | 'London' | 'New York' | 'Overlap' | 'None'>(editingTrade?.session ?? 'None');
+  const [customTags, setCustomTags] = useState<string[]>(['Breakout', 'Trend Follow', 'Support/Resistance', 'Mean Reversion', 'FVG', 'Liquidity Sweep', 'News Event', 'POV', 'FOV', 'MB/PC']);
+  const [newTagInput, setNewTagInput] = useState('');
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -775,9 +777,51 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
     try {
       const raw = localStorage.getItem('journal.pairs');
       if (raw) setRecentPairs(JSON.parse(raw));
+      
+      const rawTags = localStorage.getItem('journal.customTags');
+      if (rawTags) setCustomTags(JSON.parse(rawTags));
     } catch (e) { }
     if (editingTrade && editingTrade.pair) setPair(editingTrade.pair);
   }, [editingTrade]);
+
+  const handleAddCustomTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && newTagInput.trim()) {
+      e.preventDefault();
+      const tag = newTagInput.trim();
+      if (!customTags.includes(tag)) {
+        const next = [...customTags, tag];
+        setCustomTags(next);
+        localStorage.setItem('journal.customTags', JSON.stringify(next));
+      }
+      setNotes(prev => prev ? `${prev}, ${tag}` : tag);
+      setNewTagInput('');
+    }
+  };
+
+  const handleRemoveCustomTag = (tagToRemove: string) => {
+    const next = customTags.filter(t => t !== tagToRemove);
+    setCustomTags(next);
+    localStorage.setItem('journal.customTags', JSON.stringify(next));
+  };
+
+  const handleAddPair = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && pair.trim()) {
+      e.preventDefault();
+      const normalized = pair.trim().toUpperCase();
+      const current = Array.isArray(recentPairs) ? recentPairs : [];
+      if (!current.includes(normalized)) {
+        const next = [normalized, ...current].slice(0, 20);
+        setRecentPairs(next);
+        localStorage.setItem('journal.pairs', JSON.stringify(next));
+      }
+    }
+  };
+
+  const handleRemovePair = (pairToRemove: string) => {
+    const next = recentPairs.filter(p => p !== pairToRemove);
+    setRecentPairs(next);
+    localStorage.setItem('journal.pairs', JSON.stringify(next));
+  };
 
   // reset / mode helpers
   useEffect(() => {
@@ -1033,10 +1077,6 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
   const handleSubmit = async (ev: FormEvent) => {
     ev.preventDefault();
     if (!pair || !entryPrice || !positionSize) return;
-    if (!setupGrade) {
-      toast.error('Please select a Setup Grade (A, B, or C) before saving.');
-      return;
-    }
     setSaving(true);
 
     try {
@@ -1242,20 +1282,40 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
         {/* Fields */}
         <div className="flex flex-col gap-4">
           <Field label="Trading Pair / Asset">
-            <input
-              className={inputCls}
-              type="text"
-              placeholder="e.g. BTC/USDT, EUR/USD, AAPL"
-              list="pair-list"
-              value={pair}
-              onChange={(e) => setPair(e.target.value)}
-              required
-            />
-            <datalist id="pair-list">
-              {recentPairs.map((p) => (
-                <option key={p} value={p} />
-              ))}
-            </datalist>
+            <div className="flex flex-col gap-2">
+              <input
+                className={inputCls}
+                type="text"
+                placeholder="e.g. BTC/USDT (Press Enter to save)"
+                value={pair}
+                onChange={(e) => setPair(e.target.value.toUpperCase())}
+                onKeyDown={handleAddPair}
+                required
+              />
+              {recentPairs.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 items-center mt-1">
+                  {recentPairs.map(p => (
+                    <div key={p} className="group flex items-stretch bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-md transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
+                      <button
+                        type="button"
+                        onClick={() => setPair(p)}
+                        className="pl-2 pr-1.5 py-1 text-neutral-600 text-[0.65rem] font-bold uppercase tracking-wider active:scale-95"
+                      >
+                        {p}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePair(p)}
+                        className="pr-1.5 pl-0.5 py-1 text-neutral-400 hover:text-rose-500 active:scale-95 transition-colors flex items-center justify-center"
+                        title="Remove pair"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </Field>
 
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
@@ -1532,47 +1592,48 @@ function TradeForm({ date, onClose, editingTrade, initialMode }: TradeFormProps)
 
         {/* Notes */}
         <Field label="Notes & Reasoning">
-          <textarea
-            className={`${inputCls} resize-y min-h-[80px]`}
-            placeholder="What was your reasoning? What did you learn?"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-          />
-        </Field>
-
-        {/* Pre-Trade Checklist & Setup Grade */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">Pre-Trade Checklist</span>
-            <button
-              type="button"
-              onClick={() => { setFollowedPlan(false); setNotEmotional(false); setRiskDefined(false); setSetupGrade(null); }}
-              className="text-[0.72rem] text-journal-text-muted hover:underline"
-            >Reset</button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <label className="flex items-center gap-2 text-[0.9rem]"><input type="checkbox" checked={followedPlan} onChange={(e) => setFollowedPlan(e.target.checked)} /> Followed Trading Plan</label>
-            <label className="flex items-center gap-2 text-[0.9rem]"><input type="checkbox" checked={notEmotional} onChange={(e) => setNotEmotional(e.target.checked)} /> Not Emotional</label>
-            <label className="flex items-center gap-2 text-[0.9rem]"><input type="checkbox" checked={riskDefined} onChange={(e) => setRiskDefined(e.target.checked)} /> Risk Defined</label>
-          </div>
-
-          <div>
-            <span className="text-[0.78rem] font-bold uppercase tracking-wider text-journal-text-secondary">Setup Grade</span>
-            <div className="mt-2 flex items-center gap-3">
-              {['A', 'B', 'C'].map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setSetupGrade(g)}
-                  className={`px-4 py-2 rounded-lg font-bold border ${setupGrade === g ? 'ring-2 ring-offset-2' : 'bg-transparent'} ${g === 'A' ? 'bg-emerald-50 text-emerald-700' : ' '} ${g === 'B' ? 'bg-yellow-50 text-yellow-700' : ' '} ${g === 'C' ? 'bg-rose-50 text-rose-700' : ''}`}
-                >{g}</button>
+          <div className="flex flex-col gap-2">
+            <textarea
+              className={`${inputCls} resize-y min-h-[80px]`}
+              placeholder="What was your reasoning? What did you learn?"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+            />
+            <div className="flex flex-wrap gap-1.5 items-center mt-1">
+              {customTags.map(tag => (
+                <div key={tag} className="group flex items-stretch bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-md transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setNotes(prev => prev ? `${prev}, ${tag}` : tag)}
+                    className="pl-2 pr-1.5 py-1 text-neutral-600 text-[0.65rem] font-bold uppercase tracking-wider active:scale-95"
+                  >
+                    + {tag}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCustomTag(tag)}
+                    className="pr-1.5 pl-0.5 py-1 text-neutral-400 hover:text-rose-500 active:scale-95 transition-colors flex items-center justify-center"
+                    title="Remove tag"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
               ))}
+              <input 
+                type="text" 
+                placeholder="+ Add word (Enter)" 
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                onKeyDown={handleAddCustomTag}
+                className="px-2 py-1 bg-transparent border-b border-neutral-300 text-[0.7rem] font-medium text-neutral-700 focus:outline-none focus:border-neutral-800 transition-colors placeholder:text-neutral-400 min-w-[120px]"
+              />
             </div>
           </div>
+        </Field>
 
-          {/* Advanced Info: News Event */}
+        {/* Advanced Info: News Event */}
+        <div className="flex flex-col gap-3 mt-4">
           <div className="mt-1">
             <button
               type="button"

@@ -42,6 +42,15 @@ export default function JournalPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [modalTrade, setModalTrade] = useState<any | null>(null);
+  const [sessionFilter, setSessionFilter] = useState<'All' | 'Asian' | 'London' | 'New York' | 'Overlap' | 'None'>('All');
+
+  const dashboardTrades = useMemo(() => {
+    let closed = trades.filter(t => t.status === 'CLOSED');
+    if (sessionFilter !== 'All') {
+      closed = closed.filter(t => t.session === sessionFilter);
+    }
+    return closed;
+  }, [trades, sessionFilter]);
 
   const goPrev = () => {
     if (month === 0) {
@@ -161,7 +170,25 @@ export default function JournalPage() {
       </header>
 
       <main className="flex flex-col gap-6">
-        <DashboardSummary trades={trades.filter(t => t.status === 'CLOSED')} />
+        <div className="flex items-center justify-between -mb-2">
+          <h2 className="text-lg font-extrabold tracking-tight">Performance Summary</h2>
+          <div className="flex items-center gap-2">
+            <span className="text-[0.7rem] font-bold text-neutral-400 uppercase tracking-wider">Session</span>
+            <select
+              className="text-sm font-semibold bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 cursor-pointer shadow-sm text-neutral-800"
+              value={sessionFilter}
+              onChange={(e) => setSessionFilter(e.target.value as any)}
+            >
+              <option value="All">All Sessions</option>
+              <option value="Asian">Asian</option>
+              <option value="London">London</option>
+              <option value="New York">New York</option>
+              <option value="Overlap">Overlap</option>
+              <option value="None">None</option>
+            </select>
+          </div>
+        </div>
+        <DashboardSummary trades={dashboardTrades} />
 
         <ActivePositions onRequestClose={handleRequestClose} />
 
