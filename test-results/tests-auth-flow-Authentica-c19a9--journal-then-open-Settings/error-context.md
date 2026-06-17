@@ -1,0 +1,229 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: tests\auth-flow.spec.ts >> Authentication Flow & Dashboard E2E >> should successfully login and redirect to /journal, then open Settings
+- Location: tests\auth-flow.spec.ts:22:7
+
+# Error details
+
+```
+Error: apiRequestContext._wrapApiCall: file data stream has unexpected number of bytes
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - link "Journal" [ref=e4] [cursor=pointer]:
+      - /url: /journal
+    - link "Trade Plans" [ref=e5] [cursor=pointer]:
+      - /url: /plans
+  - generic [ref=e6]:
+    - banner [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - img [ref=e10]
+          - heading "Trading Journal" [level=1] [ref=e12]
+        - button "ro rouinhope" [active] [ref=e13] [cursor=pointer]:
+          - generic [ref=e14]: ro
+          - generic [ref=e15]: rouinhope
+      - generic [ref=e16]:
+        - button "Wallet" [ref=e17]:
+          - img [ref=e18]
+          - text: Wallet
+        - button "Export CSV" [ref=e21]:
+          - img [ref=e22]
+          - text: Export CSV
+        - button "Feedback" [ref=e25]:
+          - img [ref=e26]
+          - text: Feedback
+        - generic [ref=e28]:
+          - button "Export" [ref=e29] [cursor=pointer]:
+            - img [ref=e30]
+            - text: Export
+          - button "Import" [ref=e33] [cursor=pointer]:
+            - img [ref=e34]
+            - text: Import
+        - button "Log Out" [ref=e37] [cursor=pointer]:
+          - img [ref=e38]
+          - text: Log Out
+    - main [ref=e41]:
+      - generic [ref=e42]:
+        - heading "Performance Summary" [level=2] [ref=e43]
+        - generic [ref=e44]:
+          - generic [ref=e45]: Session
+          - combobox [ref=e46] [cursor=pointer]:
+            - option "All Sessions" [selected]
+            - option "Asian"
+            - option "London"
+            - option "New York"
+            - option "Overlap"
+            - option "None"
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - generic [ref=e49]:
+            - img [ref=e50]
+            - generic [ref=e52]: Filters
+          - combobox "Filter by asset" [ref=e53] [cursor=pointer]:
+            - option "All Assets" [selected]
+          - combobox "Filter by type" [ref=e54] [cursor=pointer]:
+            - option "All Types" [selected]
+            - option "Buy (Long)"
+            - option "Sell (Short)"
+          - combobox "Filter by P&L status" [ref=e55] [cursor=pointer]:
+            - option "All Trades" [selected]
+            - option "Winning Trades"
+            - option "Losing Trades"
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - generic [ref=e58]:
+              - img [ref=e59]
+              - generic [ref=e62]: Total Trades
+            - generic [ref=e63]: "0"
+          - generic [ref=e64]:
+            - generic [ref=e65]:
+              - img [ref=e66]
+              - generic [ref=e71]: Win Rate
+            - generic [ref=e72]: 0.0%
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - img [ref=e75]
+              - generic [ref=e79]: Total P&L
+            - generic [ref=e80]: +$0.00
+          - generic [ref=e81]:
+            - generic [ref=e82]:
+              - img [ref=e83]
+              - generic [ref=e88]: Avg R:R
+            - generic [ref=e89]: "0.00"
+        - generic [ref=e90]:
+          - generic [ref=e91]:
+            - img [ref=e92]
+            - generic [ref=e95]:
+              - generic [ref=e96]: Max Drawdown
+              - generic [ref=e97]: $0.00
+          - generic [ref=e98]:
+            - img [ref=e99]
+            - generic [ref=e101]:
+              - generic [ref=e102]: Average Win
+              - generic [ref=e103]: $0.00
+          - generic [ref=e104]:
+            - img [ref=e105]
+            - generic [ref=e109]:
+              - generic [ref=e110]: Average Loss
+              - generic [ref=e111]: $0.00
+          - generic [ref=e112]:
+            - img [ref=e113]
+            - generic [ref=e115]:
+              - generic [ref=e116]: Longest Losing Streak
+              - generic [ref=e117]: "0"
+      - generic [ref=e118]:
+        - generic [ref=e120]:
+          - button "Previous month" [ref=e121] [cursor=pointer]:
+            - img [ref=e122]
+          - heading "June 2026" [level=2] [ref=e124]
+          - button "Next month" [ref=e125] [cursor=pointer]:
+            - img [ref=e126]
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: Sun
+            - generic [ref=e132]: Mon
+            - generic [ref=e133]: Tue
+            - generic [ref=e134]: Wed
+            - generic [ref=e135]: Thu
+            - generic [ref=e136]: Fri
+            - generic [ref=e137]: Sat
+          - generic [ref=e138]:
+            - button "Day 1" [ref=e140] [cursor=pointer]:
+              - generic [ref=e141]: "1"
+            - button "Day 2" [ref=e142] [cursor=pointer]:
+              - generic [ref=e143]: "2"
+            - button "Day 3" [ref=e144] [cursor=pointer]:
+              - generic [ref=e145]: "3"
+            - button "Day 4" [ref=e146] [cursor=pointer]:
+              - generic [ref=e147]: "4"
+            - button "Day 5" [ref=e148] [cursor=pointer]:
+              - generic [ref=e149]: "5"
+            - button "Day 6" [ref=e150] [cursor=pointer]:
+              - generic [ref=e151]: "6"
+            - button "Day 7" [ref=e152] [cursor=pointer]:
+              - generic [ref=e153]: "7"
+            - button "Day 8" [ref=e154] [cursor=pointer]:
+              - generic [ref=e155]: "8"
+            - button "Day 9" [ref=e156] [cursor=pointer]:
+              - generic [ref=e157]: "9"
+            - button "Day 10" [ref=e158] [cursor=pointer]:
+              - generic [ref=e159]: "10"
+            - button "Day 11" [ref=e160] [cursor=pointer]:
+              - generic [ref=e161]: "11"
+            - button "Day 12" [ref=e162] [cursor=pointer]:
+              - generic [ref=e163]: "12"
+            - button "Day 13" [ref=e164] [cursor=pointer]:
+              - generic [ref=e165]: "13"
+            - button "Day 14" [ref=e166] [cursor=pointer]:
+              - generic [ref=e167]: "14"
+            - button "Day 15" [ref=e168] [cursor=pointer]:
+              - generic [ref=e169]: "15"
+            - button "Day 16" [ref=e170] [cursor=pointer]:
+              - generic [ref=e171]: "16"
+            - button "Day 17" [ref=e172] [cursor=pointer]:
+              - generic [ref=e173]: "17"
+            - button "Day 18" [disabled] [ref=e174]:
+              - generic [ref=e175]: "18"
+            - button "Day 19" [disabled] [ref=e176]:
+              - generic [ref=e177]: "19"
+            - button "Day 20" [disabled] [ref=e178]:
+              - generic [ref=e179]: "20"
+            - button "Day 21" [disabled] [ref=e180]:
+              - generic [ref=e181]: "21"
+            - button "Day 22" [disabled] [ref=e182]:
+              - generic [ref=e183]: "22"
+            - button "Day 23" [disabled] [ref=e184]:
+              - generic [ref=e185]: "23"
+            - button "Day 24" [disabled] [ref=e186]:
+              - generic [ref=e187]: "24"
+            - button "Day 25" [disabled] [ref=e188]:
+              - generic [ref=e189]: "25"
+            - button "Day 26" [disabled] [ref=e190]:
+              - generic [ref=e191]: "26"
+            - button "Day 27" [disabled] [ref=e192]:
+              - generic [ref=e193]: "27"
+            - button "Day 28" [disabled] [ref=e194]:
+              - generic [ref=e195]: "28"
+            - button "Day 29" [disabled] [ref=e196]:
+              - generic [ref=e197]: "29"
+            - button "Day 30" [disabled] [ref=e198]:
+              - generic [ref=e199]: "30"
+    - generic [ref=e205]:
+      - generic [ref=e206]:
+        - heading "User Settings" [level=2] [ref=e207]:
+          - img [ref=e208]
+          - text: User Settings
+        - button [ref=e211]:
+          - img [ref=e212]
+      - generic [ref=e215]:
+        - generic [ref=e216]:
+          - button "ro" [ref=e217]:
+            - generic [ref=e218]: ro
+            - img [ref=e220]
+          - generic [ref=e223]: Click to change avatar
+        - generic [ref=e224]:
+          - generic [ref=e225]: Display Name
+          - textbox "e.g. John Doe" [ref=e226]: rouinhope
+        - button "Save Settings" [ref=e227]:
+          - img [ref=e228]
+          - text: Save Settings
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e232]:
+        - img [ref=e234]
+        - generic [ref=e237]: Successfully logged in!
+  - button "Open Next.js Dev Tools" [ref=e243] [cursor=pointer]:
+    - img [ref=e244]
+  - alert [ref=e247]
+```

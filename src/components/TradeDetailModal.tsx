@@ -71,13 +71,31 @@ export default function TradeDetailModal({ trade, onClose, onEdit, onClosePositi
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     try {
+      const isDark = document.documentElement.classList.contains('dark');
       const canvas = await html2canvas(el, {
-        backgroundColor: document.documentElement.classList.contains('dark') ? '#0a0a0a' : '#f5f5f5',
+        backgroundColor: isDark ? '#0a0a0a' : '#f5f5f5',
         scale: 2,
         useCORS: true,
         allowTaint: true,
+        logging: false, // Bypasses oklab parsing errors
+        onclone: (clonedDoc) => {
+          // Remove shadows/scroll masks from main wrapper
+          const wrapper = clonedDoc.getElementById('trade-card-export');
+          if (wrapper) {
+            wrapper.style.boxShadow = 'none';
+            wrapper.style.backgroundImage = 'none';
+          }
+          
+          // Force solid backgrounds and remove blur/shadows on glass elements
+          const cleanElements = clonedDoc.querySelectorAll('[data-export-clean="true"]');
+          cleanElements.forEach((element: any) => {
+            element.style.boxShadow = 'none';
+            element.style.backdropFilter = 'none';
+            element.style.backgroundImage = 'none';
+            element.style.backgroundColor = isDark ? '#171717' : '#ffffff';
+          });
+        }
       });
-
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `${trade.pair}-Setup-${new Date(trade.createdAt).toISOString().split('T')[0]}.png`;
@@ -149,7 +167,7 @@ export default function TradeDetailModal({ trade, onClose, onEdit, onClosePositi
           <div id="trade-card-body" className="flex-1 overflow-y-auto p-6 max-sm:p-4 flex flex-col gap-6">
             
             {/* The Levels Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-[0.85rem] border border-neutral-200/60 dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
+            <div data-export-clean="true" className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-white/80 dark:bg-white/5 backdrop-blur-sm rounded-[0.85rem] border border-neutral-200/60 dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
               <div className="flex flex-col gap-1">
                 <span className="text-[0.65rem] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1"><Target className="w-3 h-3" /> Entry</span>
                 <span className="font-mono text-[1.05rem] font-extrabold text-journal-text">${trade.entryPrice}</span>
@@ -178,7 +196,7 @@ export default function TradeDetailModal({ trade, onClose, onEdit, onClosePositi
             {trade.notes && (
               <div className="flex flex-col gap-2">
                 <h3 className="text-[0.78rem] font-bold uppercase tracking-wider text-neutral-400 px-1">Notes & Reasoning</h3>
-                <div className="bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-neutral-200/60 dark:border-white/10 rounded-[0.85rem] p-4 text-[0.9rem] text-journal-text font-medium leading-relaxed whitespace-pre-wrap shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
+                <div data-export-clean="true" className="bg-white/80 dark:bg-white/5 backdrop-blur-sm border border-neutral-200/60 dark:border-white/10 rounded-[0.85rem] p-4 text-[0.9rem] text-journal-text font-medium leading-relaxed whitespace-pre-wrap shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
                   {trade.notes}
                 </div>
               </div>
@@ -200,6 +218,7 @@ export default function TradeDetailModal({ trade, onClose, onEdit, onClosePositi
                         <img 
                           src={src} 
                           alt="Chart" 
+                          crossOrigin="anonymous"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                         />
                       </button>
@@ -246,6 +265,7 @@ export default function TradeDetailModal({ trade, onClose, onEdit, onClosePositi
           <img 
             src={expandedImage} 
             alt="Expanded Chart" 
+            crossOrigin="anonymous"
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
           />
         </div>
