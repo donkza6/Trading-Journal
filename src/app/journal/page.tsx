@@ -10,6 +10,8 @@ import WalletModal from '@/components/WalletModal';
 import DashboardSummary from '@/components/DashboardSummary';
 import DataManagement from '@/components/DataManagement';
 import ActivePositions from '@/components/ActivePositions';
+import FeedbackModal from '@/components/FeedbackModal';
+import SettingsModal from '@/components/SettingsModal';
 import {
   Users,
   ChevronLeft,
@@ -18,6 +20,7 @@ import {
   Wallet,
   Download,
   LogOut,
+  MessageSquarePlus,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Papa from 'papaparse';
@@ -53,6 +56,8 @@ export default function JournalPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailTrade, setDetailTrade] = useState<any | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [sessionFilter, setSessionFilter] = useState<'All' | 'Asian' | 'London' | 'New York' | 'Overlap' | 'None'>('All');
 
   const dashboardTrades = useMemo(() => {
@@ -166,15 +171,24 @@ export default function JournalPage() {
     handleRequestClose(trade);
   };
 
-  const activeAvatar = useMemo(() => {
-    if (!activeProfile) return null;
-    return AVATARS.find((av) => av.id === activeProfile.avatarUrl) || AVATARS[0];
-  }, [activeProfile]);
-
-  if (!isLoaded || !activeProfile) {
+  if (!isLoaded) {
     return (
       <div className="min-h-screen bg-journal-bg flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-journal-text border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!activeProfile) {
+    return (
+      <div className="min-h-screen bg-journal-bg flex flex-col items-center justify-center gap-4">
+        <p className="text-journal-text-muted font-semibold">Profile not found.</p>
+        <button 
+          onClick={() => router.replace('/login')} 
+          className="px-4 py-2 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition-colors"
+        >
+          Return to Login
+        </button>
       </div>
     );
   }
@@ -190,20 +204,22 @@ export default function JournalPage() {
               Trading Journal
             </h1>
           </div>
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-neutral-200/60 select-none text-[0.82rem] font-bold"
-            style={{ backgroundColor: activeAvatar?.bg }}
+          <button
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-neutral-200/60 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors select-none text-[0.82rem] font-bold cursor-pointer shadow-sm active:scale-95"
+            title="User Settings"
           >
-            <span
-              className="w-5 h-5 rounded-full text-[0.65rem] font-black tracking-wider flex items-center justify-center select-none"
-              style={{ backgroundColor: activeAvatar?.bg, color: activeAvatar?.color }}
-            >
-              {activeAvatar?.initials}
+            {activeProfile.avatarUrl?.startsWith('http') ? (
+              <img src={activeProfile.avatarUrl} alt="Avatar" className="w-5 h-5 rounded-full object-cover" />
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[0.65rem] font-black uppercase tracking-wider">
+                {(activeProfile.displayName || activeProfile.name || 'TR').substring(0, 2)}
+              </div>
+            )}
+            <span className="truncate max-w-[100px] text-neutral-800 dark:text-neutral-200">
+              {activeProfile.displayName || activeProfile.name || 'Trader'}
             </span>
-            <span className="truncate max-w-[100px]" style={{ color: activeAvatar?.color }}>
-              {activeProfile.name}
-            </span>
-          </div>
+          </button>
         </div>
 
         <div className="flex items-center gap-3 max-md:w-full max-md:justify-between max-md:flex-wrap">
@@ -239,6 +255,13 @@ export default function JournalPage() {
             title="Export trades to CSV"
           >
             <Download className="w-4 h-4" /> Export CSV
+          </button>
+          <button
+            onClick={() => setIsFeedbackModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-transparent text-journal-text-muted border border-neutral-200/60 hover:bg-neutral-100 hover:text-neutral-900 hover:border-neutral-300 transition-colors text-[0.8rem] font-bold active:scale-95"
+            title="Send Feedback"
+          >
+            <MessageSquarePlus className="w-4 h-4" /> Feedback
           </button>
           <DataManagement />
           <button
@@ -345,6 +368,15 @@ export default function JournalPage() {
           totalRealizedPnl={metrics.totalPnl} 
         />
       )}
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+      />
     </div>
   );
 }

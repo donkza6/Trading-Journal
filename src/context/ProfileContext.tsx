@@ -37,6 +37,7 @@ interface ProfileContextValue {
   selectProfile: (id: string | null) => void;
   createProfile: (name: string, avatarUrl: string) => Promise<void>;
   updateProfileCurrency: (id: string, currency: 'USD' | 'CENT') => Promise<void>;
+  updateProfileData: (updates: Partial<Profile>) => Promise<void>;
   isLoaded: boolean;
 }
 
@@ -52,13 +53,21 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user?.id) {
-        setActiveProfileId(session.user.id);
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        setSession(session);
+        if (session?.user?.id) {
+          setActiveProfileId(session.user.id);
+        }
+      } catch (error: any) {
+        console.error('[ProfileContext Error]:', error);
+      } finally {
+        setAuthChecked(true);
       }
-      setAuthChecked(true);
-    });
+    };
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -81,28 +90,54 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   // Sync profiles from Supabase and listen for realtime updates
   const fetchProfiles = useCallback(async () => {
-    if (!session?.user?.id) return;
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      console.error('[Supabase] Error fetching profiles:', error.message, error.details, error.hint);
-    } else if (data) {
-      setProfiles(
-        data.map((p) => ({
-          id: p.id,
-          name: p.name,
-          avatarUrl: p.avatar_url,
-          accountCurrency: p.account_currency || 'USD',
-          createdAt: p.created_at,
-        }))
-      );
+    if (!session?.user?.id) {
+      setIsLoaded(true);
+      return;
     }
-    setIsLoaded(true);
+
+    try {
+      let { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        console.warn('[ProfileContext] Profile missing for authenticated user. Attempting fallback insert...');
+        const fallbackProfile = {
+          id: session.user.id,
+          name: session.user.email?.split('@')[0] || 'Trader',
+          account_currency: 'USD',
+        };
+
+        const { data: newData, error: insertError } = await supabase
+          .from('profiles')
+          .insert(fallbackProfile)
+          .select();
+
+        if (insertError) throw insertError;
+        data = newData;
+      }
+
+      if (data) {
+        setProfiles(
+          data.map((p) => ({
+            id: p.id,
+            name: p.name,
+            displayName: p.display_name,
+            avatarUrl: p.avatar_url,
+            accountCurrency: p.account_currency || 'USD',
+            createdAt: p.created_at,
+          }))
+        );
+      }
+    } catch (error: any) {
+      console.error('[ProfileContext Error]:', error);
+    } finally {
+      setIsLoaded(true);
+    }
   }, [session]);
 
   useEffect(() => {
@@ -164,6 +199,28 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     await fetchProfiles();
   };
 
+  const updateProfileData = async (updates: Partial<Profile>) => {
+    if (!activeProfileId) return;
+    
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
+    if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+    if (updates.accountCurrency !== undefined) dbUpdates.account_currency = updates.accountCurrency;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(dbUpdates)
+      .eq('id', activeProfileId);
+
+    if (error) {
+      console.error('[Supabase] Error updating profile data:', error.message);
+      throw error;
+    }
+
+    await fetchProfiles();
+  };
+
   const activeProfile = useMemo(() => {
     return profiles.find((p) => p.id === activeProfileId) || null;
   }, [profiles, activeProfileId]);
@@ -176,9 +233,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       selectProfile,
       createProfile,
       updateProfileCurrency,
+      updateProfileData,
       isLoaded,
     }),
-    [profiles, activeProfile, activeProfileId, selectProfile, createProfile, updateProfileCurrency, isLoaded]
+    [profiles, activeProfile, activeProfileId, selectProfile, createProfile, updateProfileCurrency, updateProfileData, isLoaded]
   );
 
   return (
@@ -206,42 +264,47 @@ export function useTrades(profileId: string | null) {
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase
-      .from('trades')
-      .select('*')
-      .eq('profile_id', profileId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('profile_id', profileId)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('[Supabase] Error fetching trades:', error.message, error.details, error.hint);
-    } else if (data) {
-      setTrades(
-        data.map((t) => ({
-          id: t.id,
-          profileId: t.profile_id,
-          pair: t.pair,
-          direction: t.direction as 'Long' | 'Short',
-          entryPrice: Number(t.entry_price),
-          exitPrice: t.exit_price !== null && t.exit_price !== undefined ? Number(t.exit_price) : undefined,
-          positionSize: Number(t.position_size),
-          profitLevel: t.profit_level ? Number(t.profit_level) : undefined,
-          stopLevel: t.stop_level ? Number(t.stop_level) : undefined,
-          pnl: t.pnl !== null && t.pnl !== undefined ? Number(t.pnl) : undefined,
-          outcome: t.outcome as 'Win' | 'Loss' | 'Breakeven',
-          riskReward: Number(t.risk_reward),
-          notes: t.notes || '',
-          images: t.images || [],
-          image_url: t.image_url || '',
-          entryTime: t.entry_time || undefined,
-          exitTime: t.exit_time || undefined,
-          session: t.session || undefined,
-          emotion: t.emotion as any || undefined,
-          status: (t.status as 'OPEN' | 'CLOSED' | 'PLAN') || 'CLOSED',
-          createdAt: t.created_at,
-        }))
-      );
+      if (error) throw error;
+
+      if (data) {
+        setTrades(
+          data.map((t) => ({
+            id: t.id,
+            profileId: t.profile_id,
+            pair: t.pair,
+            direction: t.direction as 'Long' | 'Short',
+            entryPrice: Number(t.entry_price),
+            exitPrice: t.exit_price !== null && t.exit_price !== undefined ? Number(t.exit_price) : undefined,
+            positionSize: Number(t.position_size),
+            profitLevel: t.profit_level ? Number(t.profit_level) : undefined,
+            stopLevel: t.stop_level ? Number(t.stop_level) : undefined,
+            pnl: t.pnl !== null && t.pnl !== undefined ? Number(t.pnl) : undefined,
+            outcome: t.outcome as 'Win' | 'Loss' | 'Breakeven',
+            riskReward: Number(t.risk_reward),
+            notes: t.notes || '',
+            images: t.images || [],
+            image_url: t.image_url || '',
+            entryTime: t.entry_time || undefined,
+            exitTime: t.exit_time || undefined,
+            session: t.session || undefined,
+            emotion: t.emotion as any || undefined,
+            status: (t.status as 'OPEN' | 'CLOSED' | 'PLAN') || 'CLOSED',
+            createdAt: t.created_at,
+          }))
+        );
+      }
+    } catch (error: any) {
+      console.error('[ProfileContext Error]:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [profileId]);
 
   useEffect(() => {

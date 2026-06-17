@@ -5,7 +5,8 @@ export type TradeOutcome = 'Win' | 'Loss' | 'Breakeven';
 export interface Profile {
   id: string;
   name: string;
-  avatarUrl: string; // Identifier for predefined avatars (e.g. "avatar-1", "avatar-2", etc.)
+  displayName?: string;
+  avatarUrl: string; // Predefined ID or fully qualified HTTP URL
   accountCurrency?: 'USD' | 'CENT';
   createdAt: string;
 }
