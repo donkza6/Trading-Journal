@@ -108,12 +108,12 @@ export default function NotesPage() {
             {notes.map((note) => (
               <div 
                 key={note.id} 
-                className="break-inside-avoid bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group flex flex-col gap-3 relative animate-slide-up"
+                className="break-inside-avoid bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group flex flex-col gap-3 relative animate-slide-up"
               >
                 <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={() => handleOpenEdit(note)}
-                    className="p-1.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 rounded-md transition-colors"
+                    className="p-1.5 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-600 dark:text-zinc-300 rounded-md transition-colors"
                     title="Edit Note"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -124,7 +124,7 @@ export default function NotesPage() {
                         deleteNote(note.id);
                       }
                     }}
-                    className="p-1.5 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 rounded-md transition-colors"
+                    className="p-1.5 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 rounded-md transition-colors"
                     title="Delete Note"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -132,18 +132,18 @@ export default function NotesPage() {
                 </div>
                 
                 {note.title && (
-                  <h3 className="text-lg font-bold text-journal-text pr-14 leading-tight">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-zinc-100 pr-14 leading-tight">
                     {note.title}
                   </h3>
                 )}
                 
                 {note.content && (
-                  <p className="text-[0.9rem] text-journal-text-secondary leading-relaxed whitespace-pre-wrap line-clamp-6">
+                  <p className="text-[0.9rem] text-gray-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap line-clamp-6">
                     {note.content}
                   </p>
                 )}
                 
-                <div className="mt-auto pt-3 flex items-center justify-between text-[0.65rem] font-semibold text-neutral-400 uppercase tracking-wider">
+                <div className="mt-auto pt-3 flex items-center justify-between text-[0.65rem] font-semibold text-gray-500 dark:text-zinc-500 uppercase tracking-wider">
                   <span>Created: {format(new Date(note.created_at), 'MMM d, yyyy')}</span>
                   {note.updated_at !== note.created_at && (
                     <span>Edited: {format(new Date(note.updated_at), 'MMM d')}</span>
