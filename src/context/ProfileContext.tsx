@@ -600,6 +600,15 @@ export function useWallet(profileId: string | null) {
     }
   }, []);
 
+  const resetWallet = useCallback(async () => {
+    if (!profileId) return;
+    const { error } = await supabase.from('funding_transactions').delete().eq('profile_id', profileId);
+    if (error) {
+      console.error('[Supabase] Error resetting wallet:', error.message);
+      throw error;
+    }
+  }, [profileId]);
+
   const { totalDeposits, totalWithdrawals, netFunding } = useMemo(() => {
     let dep = 0;
     let wit = 0;
@@ -622,5 +631,6 @@ export function useWallet(profileId: string | null) {
     netFunding,
     addTransaction,
     deleteTransaction,
+    resetWallet,
   };
 }

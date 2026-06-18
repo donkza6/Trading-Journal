@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Plus, Trash2, ArrowUpRight, ArrowDownRight, Wallet, Settings } from 'lucide-react';
+import { X, Plus, Trash2, ArrowUpRight, ArrowDownRight, Wallet, Settings, Edit2, Save } from 'lucide-react';
 import { useWallet, useProfiles } from '@/context/ProfileContext';
 
 interface WalletModalProps {
@@ -17,7 +17,8 @@ export default function WalletModal({ onClose, totalRealizedPnl }: WalletModalPr
     totalWithdrawals, 
     netFunding, 
     addTransaction, 
-    deleteTransaction 
+    deleteTransaction,
+    resetWallet
   } = useWallet(activeProfile?.id || null);
 
   const [isAdding, setIsAdding] = useState(false);
@@ -25,6 +26,8 @@ export default function WalletModal({ onClose, totalRealizedPnl }: WalletModalPr
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [isEditingBalance, setIsEditingBalance] = useState(false);
+  const [newBalanceInput, setNewBalanceInput] = useState('');
 
   if (!activeProfile) return null;
 
@@ -43,6 +46,25 @@ export default function WalletModal({ onClose, totalRealizedPnl }: WalletModalPr
     setIsAdding(false);
     setAmount('');
     setNotes('');
+  };
+
+  const handleEditBalanceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBalanceInput || isNaN(Number(newBalanceInput))) return;
+    
+    const targetBalance = Number(newBalanceInput);
+    const difference = targetBalance - currentBalance;
+    
+    if (Math.abs(difference) > 0.001) {
+      if (difference > 0) {
+        await addTransaction('DEPOSIT', difference, 'Balance Adjustment');
+      } else {
+        await addTransaction('WITHDRAWAL', Math.abs(difference), 'Balance Adjustment');
+      }
+    }
+    
+    setIsEditingBalance(false);
+    setNewBalanceInput('');
   };
 
   return (
@@ -85,23 +107,43 @@ export default function WalletModal({ onClose, totalRealizedPnl }: WalletModalPr
           
           {/* Settings Panel */}
           {showSettings && (
-            <div className="p-4 bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 rounded-xl shadow-sm flex items-center justify-between animate-fade-in">
-              <div>
-                <h4 className="text-sm font-bold text-journal-text">Account Currency</h4>
-                <p className="text-xs text-journal-text-muted mt-0.5">Change how numbers are formatted.</p>
+            <div className="p-4 bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 rounded-xl shadow-sm flex flex-col gap-4 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-journal-text">Account Currency</h4>
+                  <p className="text-xs text-journal-text-muted mt-0.5">Change how numbers are formatted.</p>
+                </div>
+                <div className="flex bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
+                  <button
+                    onClick={() => updateProfileCurrency(activeProfile.id, 'USD')}
+                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${!isCent ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white' : 'text-neutral-500 hover:text-neutral-700'}`}
+                  >
+                    Standard (USD)
+                  </button>
+                  <button
+                    onClick={() => updateProfileCurrency(activeProfile.id, 'CENT')}
+                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${isCent ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white' : 'text-neutral-500 hover:text-neutral-700'}`}
+                  >
+                    Micro (CENT)
+                  </button>
+                </div>
               </div>
-              <div className="flex bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
+
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-200/60 dark:border-neutral-800/60">
+                <div>
+                  <h4 className="text-sm font-bold text-rose-600">Reset Ledger</h4>
+                  <p className="text-xs text-journal-text-muted mt-0.5">Delete all funding transactions.</p>
+                </div>
                 <button
-                  onClick={() => updateProfileCurrency(activeProfile.id, 'USD')}
-                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${!isCent ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white' : 'text-neutral-500 hover:text-neutral-700'}`}
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to delete ALL funding transactions? This action cannot be undone.')) {
+                      resetWallet();
+                      setShowSettings(false);
+                    }
+                  }}
+                  className="px-4 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 text-rose-600 rounded-lg text-xs font-bold transition-colors shadow-sm active:scale-95"
                 >
-                  Standard (USD)
-                </button>
-                <button
-                  onClick={() => updateProfileCurrency(activeProfile.id, 'CENT')}
-                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${isCent ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white' : 'text-neutral-500 hover:text-neutral-700'}`}
-                >
-                  Micro (CENT)
+                  Reset Data
                 </button>
               </div>
             </div>
@@ -112,14 +154,40 @@ export default function WalletModal({ onClose, totalRealizedPnl }: WalletModalPr
             <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-[0.03] rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
             <div className="relative z-10 flex flex-col gap-1 items-center text-center">
               <div className="flex items-center justify-center gap-2 mb-1">
-                <span className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Current Balance</span>
+                <span className="text-sm font-bold text-neutral-400 uppercase tracking-widest flex items-center gap-1.5">
+                  Current Balance
+                  <button 
+                    onClick={() => { setIsEditingBalance(true); setNewBalanceInput(currentBalance.toString()); }} 
+                    className="text-neutral-500 hover:text-white transition-colors" 
+                    title="Adjust Balance"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                </span>
                 {isCent && (
                   <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-md text-[0.65rem] font-bold uppercase tracking-wider">
                     CENT Account
                   </span>
                 )}
               </div>
-              <span className="text-4xl sm:text-5xl font-black tracking-tight mt-1">{formatMoney(currentBalance)}</span>
+              
+              {isEditingBalance ? (
+                <form onSubmit={handleEditBalanceSubmit} className="flex items-center gap-2 mt-1">
+                  <span className="text-2xl font-bold text-neutral-400">$</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={newBalanceInput}
+                    onChange={(e) => setNewBalanceInput(e.target.value)}
+                    className="w-32 bg-transparent border-b-2 border-white/20 text-3xl font-black text-center text-white focus:outline-none focus:border-white transition-colors"
+                    autoFocus
+                  />
+                  <button type="submit" title="Save" className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-md hover:bg-emerald-500/40 transition-colors"><Save className="w-4 h-4" /></button>
+                  <button type="button" title="Cancel" onClick={() => setIsEditingBalance(false)} className="p-1.5 bg-rose-500/20 text-rose-400 rounded-md hover:bg-rose-500/40 transition-colors"><X className="w-4 h-4" /></button>
+                </form>
+              ) : (
+                <span className="text-4xl sm:text-5xl font-black tracking-tight mt-1">{formatMoney(currentBalance)}</span>
+              )}
             </div>
             <div className="relative z-10 grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-white/10 text-center">
               <div>
