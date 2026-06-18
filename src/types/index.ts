@@ -68,3 +68,13 @@ export interface PortfolioMetrics {
   currentStreak: { type: 'Win' | 'Loss' | 'None'; count: number };
   equityCurve: { date: string; cumPnl: number }[];
 }
+
+// ── Personal Note ──
+export interface Note {
+  id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}

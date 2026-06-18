@@ -35,9 +35,10 @@ export default function RootLayout({
         <ThemeProviderClient>
           <ProfileProvider>
             <div className="w-full border-b border-neutral-200/50 bg-journal-card/40">
-              <div className="max-w-[1100px] mx-auto px-6 py-3 flex items-center justify-start gap-4">
-                <Link href="/journal" className="font-bold">Journal</Link>
-                <Link href="/plans" className="font-bold">Trade Plans</Link>
+              <div className="max-w-[1100px] mx-auto px-6 py-3 flex items-center justify-start gap-6">
+                <Link href="/journal" className="text-sm font-bold text-journal-text hover:text-journal-text-muted transition-colors">Journal</Link>
+                <Link href="/plans" className="text-sm font-bold text-journal-text hover:text-journal-text-muted transition-colors">Trade Plans</Link>
+                <Link href="/notes" className="text-sm font-bold text-journal-text hover:text-journal-text-muted transition-colors">Personal Notes</Link>
               </div>
             </div>
             {children}
